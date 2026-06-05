@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Titan Rocket Run</title>
+  <link rel="stylesheet" href="src/style.css" />
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <div>
+        <h1>🐾 Titan Rocket Run</h1>
+        <p>Spam pour accélérer, saute sur la rampe, active la rocket en plein vol.</p>
+      </div>
+      <div class="records">
+        <span>Record <b id="bestDistance">0 m</b></span>
+        <span>Os <b id="coins">0</b></span>
+      </div>
+    </header>
+
+    <section class="layout">
+      <aside class="panel">
+        <h2>Contrôles</h2>
+        <div class="controls">
+          <kbd>A</kbd><kbd>D</kbd><span>alterner pour courir</span>
+          <kbd>Espace</kbd><span>sauter sur la rampe</span>
+          <kbd>Shift</kbd><span>rocket en l'air</span>
+          <kbd>R</kbd><span>relancer</span>
+        </div>
+
+        <h2>Boutique</h2>
+        <div id="shop" class="shop"></div>
+
+        <button id="resetSave" class="danger">Reset sauvegarde</button>
+      </aside>
+
+      <section class="gameShell">
+        <canvas id="game" width="1280" height="720"></canvas>
+        <div class="hud">
+          <div>
+            <label>Vitesse</label>
+            <meter id="speedMeter" min="0" max="100" value="0"></meter>
+            <span id="speedText">0%</span>
+          </div>
+          <div>
+            <label>Timing</label>
+            <meter id="timingMeter" min="0" max="100" value="0"></meter>
+            <span id="timingText">—</span>
+          </div>
+          <div>
+            <label>Rocket</label>
+            <meter id="rocketMeter" min="0" max="100" value="0"></meter>
+            <span id="rocketText">0%</span>
+          </div>
+        </div>
+        <div id="message" class="message">
+          <b>Prêt ?</b><br>
+          Alterne A / D pour charger la vitesse. Appuie sur Espace dans la zone verte.
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script src="src/game.js"></script>
+</body>
+</html>

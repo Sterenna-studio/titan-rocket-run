@@ -1,0 +1,92 @@
+{
+  "character": "Titan",
+  "game": "Titan Rocket Run",
+  "animations": {
+    "idle": {
+      "fps": 6,
+      "loop": true,
+      "frames": [
+        "assets/titan/idle/idle_01.png",
+        "assets/titan/idle/idle_02.png",
+        "assets/titan/idle/idle_03.png",
+        "assets/titan/idle/idle_04.png"
+      ]
+    },
+    "walk": {
+      "fps": 10,
+      "loop": true,
+      "frames": [
+        "assets/titan/walk/walk_01.png",
+        "assets/titan/walk/walk_02.png",
+        "assets/titan/walk/walk_03.png",
+        "assets/titan/walk/walk_04.png",
+        "assets/titan/walk/walk_05.png",
+        "assets/titan/walk/walk_06.png"
+      ]
+    },
+    "run": {
+      "fps": 13,
+      "loop": true,
+      "frames": [
+        "assets/titan/run/run_01.png",
+        "assets/titan/run/run_02.png",
+        "assets/titan/run/run_03.png",
+        "assets/titan/run/run_04.png",
+        "assets/titan/run/run_05.png",
+        "assets/titan/run/run_06.png"
+      ]
+    },
+    "jump": {
+      "fps": 8,
+      "loop": false,
+      "frames": [
+        "assets/titan/jump/jump_01.png",
+        "assets/titan/jump/jump_02.png",
+        "assets/titan/jump/jump_03.png",
+        "assets/titan/jump/jump_04.png"
+      ]
+    },
+    "attack_combo": {
+      "fps": 12,
+      "loop": false,
+      "frames": [
+        "assets/titan/attack_combo/attack_combo_01.png",
+        "assets/titan/attack_combo/attack_combo_02.png",
+        "assets/titan/attack_combo/attack_combo_03.png",
+        "assets/titan/attack_combo/attack_combo_04.png"
+      ]
+    },
+    "bark_energy_blast": {
+      "fps": 10,
+      "loop": false,
+      "frames": [
+        "assets/titan/bark_energy_blast/bark_energy_blast_01.png",
+        "assets/titan/bark_energy_blast/bark_energy_blast_02.png",
+        "assets/titan/bark_energy_blast/bark_energy_blast_03.png",
+        "assets/titan/bark_energy_blast/bark_energy_blast_04.png"
+      ]
+    },
+    "hurt": {
+      "fps": 8,
+      "loop": false,
+      "frames": [
+        "assets/titan/hurt/hurt_01.png",
+        "assets/titan/hurt/hurt_02.png"
+      ]
+    },
+    "knockout": {
+      "fps": 1,
+      "loop": false,
+      "frames": [
+        "assets/titan/knockout/knockout_01.png"
+      ]
+    },
+    "sit_rest": {
+      "fps": 3,
+      "loop": true,
+      "frames": [
+        "assets/titan/sit_rest/sit_rest_01.png"
+      ]
+    }
+  }
+}

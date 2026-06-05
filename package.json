@@ -1,0 +1,19 @@
+{
+  "name": "titan-rocket-run",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Prototype HTML5 Canvas: Titan court, saute depuis une rampe et va le plus loin possible.",
+  "scripts": {
+    "dev": "python -m http.server 8000",
+    "start": "python -m http.server 8000"
+  },
+  "keywords": [
+    "html5",
+    "canvas",
+    "game",
+    "prototype",
+    "titan"
+  ],
+  "author": "MutenRock / Pierre H",
+  "license": "UNLICENSED"
+}
