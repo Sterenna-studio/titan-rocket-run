@@ -20,6 +20,23 @@ Run → Jump → Fly/Fall → Distance → Rewards → Upgrades → Retry
 - La distance donne des os.
 - Les os servent à acheter des améliorations.
 
+## Asset Browser
+
+Une page dédiée permet de consulter et valider facilement les sprites de Titan :
+
+```text
+asset-browser.html
+```
+
+Elle permet de :
+
+- filtrer par animation ;
+- rechercher une frame ;
+- zoomer les cartes ;
+- prévisualiser une frame en grand ;
+- lire rapidement une animation ;
+- récupérer le chemin exact de chaque PNG.
+
 ## Upgrades
 
 - Chaussures : meilleure accélération.
@@ -42,6 +59,12 @@ Puis ouvrir :
 http://localhost:8000
 ```
 
+Pour consulter les assets :
+
+```text
+http://localhost:8000/asset-browser.html
+```
+
 Tu peux aussi ouvrir `index.html` directement, mais le serveur local est plus propre pour charger les assets.
 
 ## Structure
@@ -49,9 +72,12 @@ Tu peux aussi ouvrir `index.html` directement, mais le serveur local est plus pr
 ```text
 .
 ├── index.html
+├── asset-browser.html
 ├── package.json
 ├── README.md
 ├── src/
+│   ├── asset-browser.css
+│   ├── asset-browser.js
 │   ├── game.js
 │   └── style.css
 └── assets/
