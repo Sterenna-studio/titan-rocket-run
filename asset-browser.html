@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Asset Browser — Titan Rocket Run</title>
+  <link rel="stylesheet" href="src/asset-browser.css" />
+</head>
+<body>
+  <main class="assetApp">
+    <header class="assetTopbar">
+      <div>
+        <p class="eyebrow">Titan Rocket Run</p>
+        <h1>Asset Browser</h1>
+        <p>Page de validation pour consulter rapidement les animations, frames PNG et chemins d'assets.</p>
+      </div>
+      <nav class="topActions">
+        <a href="index.html">▶ Tester le jeu</a>
+        <a href="https://github.com/MutenRock/titan-rocket-run" target="_blank" rel="noreferrer">GitHub</a>
+      </nav>
+    </header>
+
+    <section class="toolbar">
+      <label>
+        Animation
+        <select id="animationFilter">
+          <option value="all">Toutes</option>
+        </select>
+      </label>
+      <label>
+        Recherche
+        <input id="searchInput" type="search" placeholder="idle, run, jump, frame, png..." />
+      </label>
+      <label>
+        Zoom preview
+        <input id="zoomRange" type="range" min="80" max="420" value="190" />
+      </label>
+      <button id="playAllBtn" type="button">Lire l'animation</button>
+    </section>
+
+    <section class="summary" id="summary"></section>
+
+    <section class="workspace">
+      <aside class="previewPanel">
+        <h2>Prévisualisation</h2>
+        <div class="previewStage" id="previewStage">
+          <img id="previewImage" alt="Preview sprite" />
+        </div>
+        <div class="previewMeta" id="previewMeta">Sélectionne une frame.</div>
+      </aside>
+
+      <section class="gridPanel">
+        <div class="gridHeader">
+          <h2>Frames</h2>
+          <p id="gridCount">—</p>
+        </div>
+        <div id="assetGrid" class="assetGrid"></div>
+      </section>
+    </section>
+  </main>
+
+  <script src="src/asset-browser.js"></script>
+</body>
+</html>
