@@ -1,0 +1,16 @@
+name: Sync to gwen-ha-star-static
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger sync in gwen-ha-star-static
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.SYNC_TOKEN }}
+          repository: MutenRock/gwen-ha-star-static
+          event-type: sync-titan-rocket-run
