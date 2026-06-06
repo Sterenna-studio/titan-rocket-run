@@ -12,5 +12,5 @@ jobs:
         uses: peter-evans/repository-dispatch@v3
         with:
           token: ${{ secrets.SYNC_TOKEN }}
-          repository: MutenRock/gwen-ha-star-static
+          repository: sterenna-studio/gwen-ha-star-static
           event-type: sync-titan-rocket-run
