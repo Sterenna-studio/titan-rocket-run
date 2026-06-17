@@ -1,0 +1,121 @@
+{
+  "idle": [
+    {
+      "file": "idle/idle_01.png",
+      "size": [
+        672,
+        434
+      ]
+    },
+    {
+      "file": "idle/idle_02.png",
+      "size": [
+        678,
+        435
+      ]
+    }
+  ],
+  "walk": [
+    {
+      "file": "walk/walk_01.png",
+      "size": [
+        525,
+        319
+      ]
+    },
+    {
+      "file": "walk/walk_02.png",
+      "size": [
+        501,
+        319
+      ]
+    },
+    {
+      "file": "walk/walk_03.png",
+      "size": [
+        521,
+        321
+      ]
+    },
+    {
+      "file": "walk/walk_04.png",
+      "size": [
+        518,
+        319
+      ]
+    }
+  ],
+  "run": [
+    {
+      "file": "run/run_01.png",
+      "size": [
+        528,
+        337
+      ]
+    },
+    {
+      "file": "run/run_02.png",
+      "size": [
+        537,
+        310
+      ]
+    },
+    {
+      "file": "run/run_03.png",
+      "size": [
+        535,
+        310
+      ]
+    },
+    {
+      "file": "run/run_04.png",
+      "size": [
+        547,
+        298
+      ]
+    }
+  ],
+  "bark_attack": [
+    {
+      "file": "bark_attack/bark_attack_01.png",
+      "size": [
+        690,
+        406
+      ]
+    },
+    {
+      "file": "bark_attack/bark_attack_02.png",
+      "size": [
+        636,
+        339
+      ]
+    }
+  ],
+  "jump": [
+    {
+      "file": "jump/jump_01.png",
+      "size": [
+        811,
+        521
+      ]
+    }
+  ],
+  "hurt_stunned": [
+    {
+      "file": "hurt_stunned/hurt_stunned_01.png",
+      "size": [
+        696,
+        514
+      ]
+    }
+  ],
+  "sit_rest": [
+    {
+      "file": "sit_rest/sit_rest_01.png",
+      "size": [
+        739,
+        733
+      ]
+    }
+  ]
+}
