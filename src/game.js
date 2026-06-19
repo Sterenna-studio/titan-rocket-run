@@ -15,14 +15,28 @@
     rocketMeter: document.getElementById("rocketMeter"),
     rocketText: document.getElementById("rocketText"),
     resetSave: document.getElementById("resetSave"),
+    muteBtn: document.getElementById("muteBtn"),
+    overlay: document.getElementById("overlay"),
+    titleScreen: document.getElementById("titleScreen"),
+    resultScreen: document.getElementById("resultScreen"),
+    playBtn: document.getElementById("playBtn"),
+    retryBtn: document.getElementById("retryBtn"),
+    resTitle: document.getElementById("resTitle"),
+    resDist: document.getElementById("resDist"),
+    resSpeed: document.getElementById("resSpeed"),
+    resJump: document.getElementById("resJump"),
+    resBones: document.getElementById("resBones"),
+    resHits: document.getElementById("resHits"),
+    resReward: document.getElementById("resReward"),
+    resBadge: document.getElementById("resBadge"),
   };
 
   const upgrades = {
-    shoes: { name: "Chaussures", desc: "Plus d'accélération quand tu spammes.", base: 40, max: 8 },
-    ramp: { name: "Rampe", desc: "Zone de saut plus large et meilleur angle.", base: 55, max: 8 },
-    rocket: { name: "Rocket", desc: "Boost utilisable en plein vol avec Shift.", base: 70, max: 8 },
-    cape: { name: "Cape aéro", desc: "Titan perd moins de vitesse en l'air.", base: 45, max: 8 },
-    start: { name: "Ligne de départ", desc: "Bonus de vitesse initiale.", base: 35, max: 8 },
+    shoes: { name: "Chaussures", desc: "Plus d'accélération quand tu spammes.", base: 35, max: 8 },
+    ramp: { name: "Rampe", desc: "Zone de saut plus large et meilleur angle.", base: 50, max: 8 },
+    rocket: { name: "Rocket", desc: "Boost utilisable en plein vol avec Shift.", base: 60, max: 8 },
+    cape: { name: "Cape aéro", desc: "Titan perd moins de vitesse en l'air.", base: 40, max: 8 },
+    start: { name: "Ligne de départ", desc: "Bonus de vitesse initiale.", base: 30, max: 8 },
   };
 
   const defaultSave = {
@@ -39,6 +53,8 @@
   let time = 0;
   let particles = [];
   let entities = [];
+  let shake = 0;
+  let flash = null; // { color, life, max }
   let state = "ready";
   let runInput = { lastKey: null, combo: 0, spamHeat: 0 };
   let attempt = {};
@@ -67,6 +83,110 @@
     rotation: 0,
     hurtT: 0,
   };
+
+  const audio = {
+    ctx: null,
+    master: null,
+    muted: false,
+    rocketNode: null,
+    rocketGain: null,
+    ensure() {
+      if (this.ctx || this.muted) return;
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      this.ctx = new AC();
+      this.master = this.ctx.createGain();
+      this.master.gain.value = 0.35;
+      this.master.connect(this.ctx.destination);
+    },
+    resume() {
+      if (this.ctx && this.ctx.state === "suspended") this.ctx.resume();
+    },
+    blip({ freq = 440, dur = 0.12, type = "sine", to = null, gain = 1 }) {
+      if (!this.ctx || this.muted) return;
+      const t = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const g = this.ctx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, t);
+      if (to) osc.frequency.exponentialRampToValueAtTime(to, t + dur);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(gain, t + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      osc.connect(g).connect(this.master);
+      osc.start(t);
+      osc.stop(t + dur + 0.02);
+    },
+    noise({ dur = 0.2, gain = 0.5, lp = 1200 }) {
+      if (!this.ctx || this.muted) return;
+      const t = this.ctx.currentTime;
+      const len = Math.floor(this.ctx.sampleRate * dur);
+      const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+      const src = this.ctx.createBufferSource();
+      src.buffer = buf;
+      const filt = this.ctx.createBiquadFilter();
+      filt.type = "lowpass";
+      filt.frequency.value = lp;
+      const g = this.ctx.createGain();
+      g.gain.value = gain;
+      src.connect(filt).connect(g).connect(this.master);
+      src.start(t);
+    },
+    jump() { this.blip({ freq: 260, to: 760, dur: 0.22, type: "square", gain: 0.5 }); },
+    bone() { this.blip({ freq: 880, to: 1500, dur: 0.13, type: "triangle", gain: 0.4 }); },
+    hit() { this.blip({ freq: 200, to: 60, dur: 0.25, type: "sawtooth", gain: 0.5 }); this.noise({ dur: 0.22, gain: 0.4, lp: 800 }); },
+    land() { this.noise({ dur: 0.3, gain: 0.6, lp: 600 }); this.blip({ freq: 140, to: 70, dur: 0.2, type: "sine", gain: 0.4 }); },
+    rocket(on) {
+      if (!this.ctx || this.muted) {
+        if (this.rocketNode) this.stopRocket();
+        return;
+      }
+      if (on && !this.rocketNode) {
+        const len = Math.floor(this.ctx.sampleRate * 0.5);
+        const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+        const data = buf.getChannelData(0);
+        for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+        const src = this.ctx.createBufferSource();
+        src.buffer = buf;
+        src.loop = true;
+        const filt = this.ctx.createBiquadFilter();
+        filt.type = "bandpass";
+        filt.frequency.value = 480;
+        const g = this.ctx.createGain();
+        g.gain.value = 0.0001;
+        g.gain.linearRampToValueAtTime(0.28, this.ctx.currentTime + 0.05);
+        src.connect(filt).connect(g).connect(this.master);
+        src.start();
+        this.rocketNode = src;
+        this.rocketGain = g;
+      } else if (!on && this.rocketNode) {
+        this.stopRocket();
+      }
+    },
+    stopRocket() {
+      if (!this.rocketNode) return;
+      try {
+        const t = this.ctx.currentTime;
+        this.rocketGain.gain.cancelScheduledValues(t);
+        this.rocketGain.gain.setValueAtTime(this.rocketGain.gain.value, t);
+        this.rocketGain.gain.linearRampToValueAtTime(0.0001, t + 0.08);
+        this.rocketNode.stop(t + 0.1);
+      } catch { /* already stopped */ }
+      this.rocketNode = null;
+      this.rocketGain = null;
+    },
+    toggleMute() {
+      this.muted = !this.muted;
+      if (this.muted) this.stopRocket();
+      if (this.master) this.master.gain.value = this.muted ? 0 : 0.35;
+      return this.muted;
+    },
+  };
+
+  function shakeScreen(amount) { shake = Math.min(26, shake + amount); }
+  function flashScreen(color, life = 0.3) { flash = { color, life, max: life }; }
 
   async function loadAssets() {
     const res = await fetch("assets/titan_manifest.json");
@@ -109,7 +229,7 @@
   function upgradeCost(id) {
     const u = upgrades[id];
     const lvl = save.upgrades[id] || 0;
-    return Math.floor(u.base * Math.pow(1.55, lvl));
+    return Math.floor(u.base * Math.pow(1.5, lvl));
   }
 
   function updateUI() {
@@ -173,6 +293,7 @@
       hits: 0,
     };
     message("Prêt ?", "Alterne A / D pour courir. Appuie sur Espace dans la zone verte de la rampe.");
+    hideOverlay();
   }
 
   function spawnField() {
@@ -213,12 +334,16 @@
         attempt.bonusBones += e.value;
         titan.vx += 24;
         burst(e.x, e.y, 14);
+        audio.bone();
       } else {
         attempt.hits++;
         titan.vx *= 0.68;
         titan.vy += 230;
         titan.hurtT = 0.4;
         redBurst(e.x, e.y, 22);
+        audio.hit();
+        shakeScreen(14);
+        flashScreen("rgba(255,80,60,", 0.28);
         message("Aïe !", "Titan a percuté un obstacle. Vise les os, évite les mines rouges.");
       }
     }
@@ -226,6 +351,42 @@
 
   function message(title, body) {
     el.msg.innerHTML = `<b>${title}</b><br>${body}`;
+  }
+
+  function showTitle() {
+    state = "title";
+    el.titleScreen.classList.remove("hidden");
+    el.resultScreen.classList.add("hidden");
+    el.overlay.classList.remove("hidden");
+  }
+
+  function showResult() {
+    el.titleScreen.classList.add("hidden");
+    el.resultScreen.classList.remove("hidden");
+    el.resDist.textContent = `${attempt.distance.toFixed(1)} m`;
+    el.resSpeed.textContent = Math.round(attempt.maxSpeed);
+    el.resJump.textContent = `${Math.round(attempt.jumpQuality * 100)}%`;
+    el.resBones.textContent = `${attempt.pickups} (+${attempt.bonusBones})`;
+    el.resHits.textContent = attempt.hits;
+    el.resReward.textContent = `+${attempt.reward}`;
+
+    const isBest = attempt.distance >= save.best && attempt.distance > 0;
+    el.resTitle.textContent = isBest ? "Nouveau record !" : "Run terminé";
+    let badge = "";
+    if (attempt.jumpQuality > 0.85) badge = "🚀 Décollage parfait";
+    else if (attempt.pickups >= 6) badge = "🦴 Chasseur d'os";
+    else if (attempt.hits === 0 && attempt.distance > 8) badge = "✨ Run propre";
+    if (badge) {
+      el.resBadge.textContent = badge;
+      el.resBadge.classList.remove("hidden");
+    } else {
+      el.resBadge.classList.add("hidden");
+    }
+    el.overlay.classList.remove("hidden");
+  }
+
+  function hideOverlay() {
+    el.overlay.classList.add("hidden");
   }
 
   function startRun() {
@@ -255,6 +416,9 @@
     titan.y -= 8;
 
     burst(titan.x, titan.y - 40, quality > .75 ? 30 : 12);
+    audio.jump();
+    shakeScreen(8 + quality * 8);
+    if (quality > .85) { flashScreen("rgba(98,255,82,", 0.35); }
     if (quality > .85) message("Timing parfait !", "Titan prend son envol comme une fusée verte.");
     else if (quality > .45) message("Bon saut", "Pas mal, mais tu peux gratter plus de distance.");
     else message("Saut faible", "Trop tôt ou trop tard : vise la zone verte.");
@@ -303,11 +467,19 @@
       `${dist.toFixed(1)} m !`,
       `+${reward} os${bonusLine}. Appuie sur R pour relancer ou améliore Titan dans la boutique.`
     );
+    showResult();
   }
 
   function keyDown(e) {
     const k = e.key.toLowerCase();
     keys.add(k);
+    audio.ensure();
+    audio.resume();
+
+    if (state === "title") {
+      if (k === " " || k === "enter") { e.preventDefault(); resetAttempt(); }
+      return;
+    }
 
     if (k === "r") resetAttempt();
     if (k === " " && (state === "ready" || state === "result")) {
@@ -368,8 +540,10 @@
     }
 
     if (state === "flight") {
-      titan.anim = keys.has("shift") && attempt.rocket > 0 ? "bark_energy_blast" : "jump";
+      const rocketActive = keys.has("shift") && attempt.rocket > 0;
+      titan.anim = rocketActive ? "bark_energy_blast" : "jump";
       if (keys.has("shift")) doRocket(dt);
+      audio.rocket(rocketActive);
       const aero = 0.05 + save.upgrades.cape * 0.007;
       titan.vx *= (1 - aero * dt);
       titan.vy += 960 * dt;
@@ -383,6 +557,9 @@
         titan.rotation = 0;
         titan.vx *= 0.55;
         burst(titan.x, titan.y - 20, 20);
+        audio.rocket(false);
+        audio.land();
+        shakeScreen(12);
         finishRun();
       }
     }
@@ -400,6 +577,12 @@
     titan.y += titan.vy * dt;
     attempt.maxSpeed = Math.max(attempt.maxSpeed, titan.vx);
     cameraX = Math.max(0, titan.x - 330);
+
+    shake = Math.max(0, shake - 60 * dt);
+    if (flash) {
+      flash.life -= dt;
+      if (flash.life <= 0) flash = null;
+    }
 
     updateAnim(dt);
     updateParticles(dt);
@@ -438,6 +621,10 @@
 
   function draw() {
     ctx.clearRect(0, 0, W, H);
+    ctx.save();
+    if (shake > 0.5) {
+      ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+    }
     drawBackground();
     drawTrack();
     drawEntities();
@@ -445,6 +632,14 @@
     drawTitan();
     drawParticles(false);
     drawForegroundText();
+    ctx.restore();
+
+    if (flash) {
+      ctx.save();
+      ctx.fillStyle = `${flash.color}${(flash.life / flash.max) * 0.4})`;
+      ctx.fillRect(0, 0, W, H);
+      ctx.restore();
+    }
   }
 
   function drawBackground() {
@@ -731,9 +926,20 @@
     updateUI();
   };
 
+  el.playBtn.onclick = () => { audio.ensure(); audio.resume(); resetAttempt(); el.playBtn.blur(); };
+  el.retryBtn.onclick = () => { audio.ensure(); audio.resume(); resetAttempt(); el.retryBtn.blur(); };
+  el.muteBtn.onclick = () => {
+    audio.ensure();
+    const muted = audio.toggleMute();
+    el.muteBtn.textContent = muted ? "🔇" : "🔊";
+    el.muteBtn.setAttribute("aria-pressed", String(muted));
+    el.muteBtn.blur();
+  };
+
   loadAssets().then(() => {
     updateUI();
     resetAttempt();
+    showTitle();
     requestAnimationFrame(loop);
   });
 })();

@@ -20,6 +20,8 @@ Run → Jump → Fly/Fall → Distance → Rewards → Upgrades → Retry
 - En vol, ramasser les os flottants (plus ils sont haut, plus ils rapportent) et éviter les mines rouges qui freinent Titan.
 - La distance et les os ramassés donnent des récompenses.
 - Les os servent à acheter des améliorations.
+- Un écran titre lance la partie, et un panel de résultats (distance, vitesse max, qualité de saut, os, badges) s'affiche après chaque run.
+- Le bouton 🔊 en haut à droite coupe / réactive le son.
 
 ## Asset Browser
 
@@ -97,9 +99,9 @@ Tu peux aussi ouvrir `index.html` directement, mais le serveur local est plus pr
 
 ## Roadmap rapide
 
-- Ajouter un écran titre.
-- Ajouter un vrai panel de résultats après chaque run.
+- ✅ Écran titre.
+- ✅ Panel de résultats après chaque run (stats + badges).
 - ✅ Obstacles / pickups pendant le vol.
-- Équilibrer les coûts d'upgrades.
-- Ajouter sons et effets visuels.
+- 🔁 Équilibrage des coûts d'upgrades (premier passage fait, à affiner en jouant).
+- ✅ Sons (WebAudio synthétisé) et effets visuels (screen shake, flashs).
 - Préparer une version Phaser ou Godot si besoin.

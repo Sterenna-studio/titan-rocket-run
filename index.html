@@ -15,6 +15,7 @@
       </div>
       <div class="records">
         <a class="assetLink" href="asset-browser.html">Assets</a>
+        <button id="muteBtn" class="iconToggle" title="Couper / activer le son" aria-pressed="false">🔊</button>
         <span>Record <b id="bestDistance">0 m</b></span>
         <span>Os <b id="coins">0</b></span>
       </div>
@@ -44,6 +45,36 @@
           <div><label>Rocket</label><meter id="rocketMeter" min="0" max="100" value="0"></meter><span id="rocketText">0%</span></div>
         </div>
         <div id="message" class="message"><b>Prêt ?</b><br>Alterne A / D pour charger la vitesse. Appuie sur Espace dans la zone verte.</div>
+
+        <div id="overlay" class="overlay">
+          <div id="titleScreen" class="card">
+            <h2 class="bigTitle">Titan Rocket Run</h2>
+            <p class="lead">Charge ta vitesse, saute sur la rampe, allume la rocket et ramasse les os en plein vol — va le plus loin possible.</p>
+            <div class="ctrlGrid">
+              <span><kbd>A</kbd><kbd>D</kbd> alterner pour courir</span>
+              <span><kbd>Espace</kbd> sauter sur la rampe</span>
+              <span><kbd>Shift</kbd> rocket en l'air</span>
+              <span><kbd>R</kbd> relancer</span>
+            </div>
+            <button id="playBtn" class="cta">Jouer</button>
+          </div>
+
+          <div id="resultScreen" class="card hidden">
+            <h2 id="resTitle">Run terminé</h2>
+            <div class="stats">
+              <div class="stat"><b id="resDist">0 m</b><label>Distance</label></div>
+              <div class="stat"><b id="resSpeed">0</b><label>Vitesse max</label></div>
+              <div class="stat"><b id="resJump">0%</b><label>Qualité saut</label></div>
+              <div class="stat"><b id="resBones">0</b><label>Os ramassés</label></div>
+              <div class="stat"><b id="resHits">0</b><label>Obstacles touchés</label></div>
+              <div class="stat reward"><b id="resReward">+0</b><label>Os gagnés</label></div>
+            </div>
+            <p id="resBadge" class="badge hidden"></p>
+            <div class="resButtons">
+              <button id="retryBtn" class="cta">Rejouer (R)</button>
+            </div>
+          </div>
+        </div>
       </section>
     </section>
   </main>
