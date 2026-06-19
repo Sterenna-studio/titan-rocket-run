@@ -17,7 +17,8 @@ Run → Jump → Fly/Fall → Distance → Rewards → Upgrades → Retry
 - Alterner `A` / `D` pour charger la course.
 - Appuyer sur `Espace` au bon moment sur la rampe.
 - Maintenir `Shift` en vol pour utiliser la rocket.
-- La distance donne des os.
+- En vol, ramasser les os flottants (plus ils sont haut, plus ils rapportent) et éviter les mines rouges qui freinent Titan.
+- La distance et les os ramassés donnent des récompenses.
 - Les os servent à acheter des améliorations.
 
 ## Asset Browser
@@ -98,7 +99,7 @@ Tu peux aussi ouvrir `index.html` directement, mais le serveur local est plus pr
 
 - Ajouter un écran titre.
 - Ajouter un vrai panel de résultats après chaque run.
-- Ajouter des obstacles / pickups pendant le vol.
+- ✅ Obstacles / pickups pendant le vol.
 - Équilibrer les coûts d'upgrades.
 - Ajouter sons et effets visuels.
 - Préparer une version Phaser ou Godot si besoin.

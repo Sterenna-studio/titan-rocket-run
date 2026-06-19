@@ -38,6 +38,7 @@
   let last = performance.now();
   let time = 0;
   let particles = [];
+  let entities = [];
   let state = "ready";
   let runInput = { lastKey: null, combo: 0, spamHeat: 0 };
   let attempt = {};
@@ -64,6 +65,7 @@
     scale: 0.22,
     grounded: true,
     rotation: 0,
+    hurtT: 0,
   };
 
   async function loadAssets() {
@@ -153,6 +155,8 @@
     });
     cameraX = 0;
     particles = [];
+    titan.hurtT = 0;
+    spawnField();
     runInput = { lastKey: null, combo: 0, spamHeat: 0 };
     state = "ready";
     attempt = {
@@ -164,8 +168,60 @@
       rocketUsed: 0,
       distance: 0,
       reward: 0,
+      pickups: 0,
+      bonusBones: 0,
+      hits: 0,
     };
     message("Prêt ?", "Alterne A / D pour courir. Appuie sur Espace dans la zone verte de la rampe.");
+  }
+
+  function spawnField() {
+    entities = [];
+    const fieldStart = config.rampX + 320;
+    const fieldEnd = config.rampX + 7200;
+    let x = fieldStart;
+    while (x < fieldEnd) {
+      x += 150 + Math.random() * 230;
+      const isObstacle = Math.random() < 0.32;
+      // Higher bones are riskier to reach but worth more.
+      const height = 70 + Math.random() * 340;
+      entities.push({
+        x,
+        y: config.groundY - height,
+        type: isObstacle ? "obstacle" : "bone",
+        r: isObstacle ? 28 : 20,
+        value: isObstacle ? 0 : Math.round(2 + height / 110),
+        hit: false,
+        bob: Math.random() * Math.PI * 2,
+      });
+    }
+  }
+
+  function checkEntityCollisions() {
+    if (state !== "flight") return;
+    const cx = titan.x;
+    const cy = titan.y - 70; // approx body center
+    for (const e of entities) {
+      if (e.hit) continue;
+      const dx = e.x - cx;
+      const dy = e.y - cy;
+      const rr = e.r + 46;
+      if (dx * dx + dy * dy > rr * rr) continue;
+      e.hit = true;
+      if (e.type === "bone") {
+        attempt.pickups++;
+        attempt.bonusBones += e.value;
+        titan.vx += 24;
+        burst(e.x, e.y, 14);
+      } else {
+        attempt.hits++;
+        titan.vx *= 0.68;
+        titan.vy += 230;
+        titan.hurtT = 0.4;
+        redBurst(e.x, e.y, 22);
+        message("Aïe !", "Titan a percuté un obstacle. Vise les os, évite les mines rouges.");
+      }
+    }
   }
 
   function message(title, body) {
@@ -233,14 +289,19 @@
     titan.anim = "sit_rest";
     const dist = Math.max(0, (titan.x - config.startX) * config.worldScale);
     attempt.distance = dist;
-    const reward = Math.max(1, Math.floor(dist * 0.8 + attempt.maxSpeed * 0.02 + attempt.jumpQuality * 20));
+    const reward = Math.max(1, Math.floor(
+      dist * 0.8 + attempt.maxSpeed * 0.02 + attempt.jumpQuality * 20 + attempt.bonusBones
+    ));
     attempt.reward = reward;
     save.coins += reward;
     if (dist > save.best) save.best = dist;
     writeSave();
+    const bonusLine = attempt.pickups > 0
+      ? ` (dont +${attempt.bonusBones} de ${attempt.pickups} os ramassés)`
+      : "";
     message(
       `${dist.toFixed(1)} m !`,
-      `+${reward} os. Appuie sur R pour relancer ou améliore Titan dans la boutique.`
+      `+${reward} os${bonusLine}. Appuie sur R pour relancer ou améliore Titan dans la boutique.`
     );
   }
 
@@ -314,6 +375,8 @@
       titan.vy += 960 * dt;
       titan.rotation = clamp(titan.vy / 1200, -0.22, 0.45);
 
+      checkEntityCollisions();
+
       if (titan.y >= config.groundY && titan.vy > 0) {
         titan.y = config.groundY;
         titan.grounded = true;
@@ -322,6 +385,11 @@
         burst(titan.x, titan.y - 20, 20);
         finishRun();
       }
+    }
+
+    if (titan.hurtT > 0) {
+      titan.hurtT -= dt;
+      titan.anim = "hurt";
     }
 
     if (state === "result") {
@@ -372,6 +440,7 @@
     ctx.clearRect(0, 0, W, H);
     drawBackground();
     drawTrack();
+    drawEntities();
     drawParticles(true);
     drawTitan();
     drawParticles(false);
@@ -495,7 +564,88 @@
     ctx.font = "600 13px system-ui";
     ctx.fillStyle = "rgba(236,255,240,.65)";
     ctx.fillText("distance tentative", W - 58, 158);
+
+    if ((state === "flight" || state === "result") && attempt.pickups > 0) {
+      ctx.fillStyle = "#62ff52";
+      ctx.font = "800 18px system-ui";
+      ctx.fillText(`+${attempt.bonusBones} os 🦴 ×${attempt.pickups}`, W - 58, 184);
+    }
     ctx.restore();
+  }
+
+  function drawEntities() {
+    ctx.save();
+    ctx.translate(-cameraX, 0);
+    for (const e of entities) {
+      if (e.hit) continue;
+      if (e.x - cameraX < -80 || e.x - cameraX > W + 80) continue;
+      const ey = e.y + Math.sin(time * 3 + e.bob) * 6;
+      if (e.type === "bone") drawBone(e.x, ey, e.r);
+      else drawObstacle(e.x, ey, e.r);
+    }
+    ctx.restore();
+  }
+
+  function drawBone(x, y, r) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.shadowColor = "rgba(98,255,82,.85)";
+    ctx.shadowBlur = 16;
+    ctx.strokeStyle = "rgba(98,255,82,.45)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, r + 7, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.rotate(-0.4);
+    ctx.fillStyle = "#f4fff0";
+    const bw = r * 1.8, knob = r * 0.42;
+    ctx.beginPath();
+    ctx.arc(-bw / 2, -knob, knob, 0, Math.PI * 2);
+    ctx.arc(-bw / 2, knob, knob, 0, Math.PI * 2);
+    ctx.arc(bw / 2, -knob, knob, 0, Math.PI * 2);
+    ctx.arc(bw / 2, knob, knob, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillRect(-bw / 2, -knob * 0.9, bw, knob * 1.8);
+    ctx.restore();
+  }
+
+  function drawObstacle(x, y, r) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(time * 0.8);
+    ctx.shadowColor = "rgba(255,80,60,.7)";
+    ctx.shadowBlur = 18;
+    ctx.fillStyle = "#ff5b46";
+    const spikes = 8;
+    ctx.beginPath();
+    for (let i = 0; i < spikes * 2; i++) {
+      const ang = (i / (spikes * 2)) * Math.PI * 2;
+      const rad = i % 2 ? r : r * 0.55;
+      ctx.lineTo(Math.cos(ang) * rad, Math.sin(ang) * rad);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#2a0a06";
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.32, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function redBurst(x, y, n) {
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const sp = 90 + Math.random() * 320;
+      particles.push({
+        x, y,
+        vx: Math.cos(a) * sp,
+        vy: Math.sin(a) * sp,
+        life: .4 + Math.random() * .3,
+        max: .7,
+        r: 4 + Math.random() * 9,
+        color: "rgba(255,90,70,"
+      });
+    }
   }
 
   function footDust() {
