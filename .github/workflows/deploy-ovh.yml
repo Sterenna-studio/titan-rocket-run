@@ -1,0 +1,46 @@
+name: Deploy Titan Rocket Run
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-titan-rocket-run-ovh
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy to OVH via SSH
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.OVH_SSH_KEY }}" > ~/.ssh/ovh_key
+          chmod 600 ~/.ssh/ovh_key
+          ssh-keyscan -H "${{ secrets.OVH_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Ensure remote target directory exists
+        run: |
+          ssh -i ~/.ssh/ovh_key "${{ secrets.OVH_USER }}@${{ secrets.OVH_HOST }}" "mkdir -p ~/nitro/titan-rocket-run"
+
+      - name: Deploy via rsync
+        run: |
+          rsync -avz --delete \
+            --exclude='/.git/' \
+            --exclude='/.github/' \
+            --exclude='/README.md' \
+            --exclude='/LICENSE' \
+            --exclude='/docs/' \
+            -e "ssh -i ~/.ssh/ovh_key" \
+            ./ "${{ secrets.OVH_USER }}@${{ secrets.OVH_HOST }}:~/nitro/titan-rocket-run/"
+
+      - name: Cleanup
+        if: always()
+        run: rm -f ~/.ssh/ovh_key
