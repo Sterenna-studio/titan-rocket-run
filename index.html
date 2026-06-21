@@ -46,6 +46,18 @@
         </div>
         <div id="message" class="message"><b>Prêt ?</b><br>Alterne A / D pour charger la vitesse. Appuie sur Espace dans la zone verte.</div>
 
+        <div class="touchControls" aria-label="Contrôles tactiles">
+          <div class="touchRun" aria-label="Course">
+            <button type="button" class="touchBtn" data-key="a">A</button>
+            <button type="button" class="touchBtn" data-key="d">D</button>
+          </div>
+          <div class="touchActions" aria-label="Actions">
+            <button type="button" class="touchBtn touchJump" data-key="space">Saut</button>
+            <button type="button" class="touchBtn touchRocket" data-key="shift">Rocket</button>
+            <button type="button" class="touchBtn touchRetry" data-key="r">R</button>
+          </div>
+        </div>
+
         <div id="overlay" class="overlay">
           <div id="titleScreen" class="card">
             <h2 class="bigTitle">Titan Rocket Run</h2>
@@ -79,5 +91,35 @@
     </section>
   </main>
   <script src="src/game.js"></script>
+  <script>
+    (() => {
+      const keyMap = { space: " ", shift: "Shift" };
+      const emitKey = (rawKey, type) => {
+        const key = keyMap[rawKey] || rawKey;
+        window.dispatchEvent(new KeyboardEvent(type, { key, bubbles: true, cancelable: true }));
+      };
+
+      document.querySelectorAll(".touchBtn").forEach((button) => {
+        const key = button.dataset.key;
+        const release = (event) => {
+          event.preventDefault();
+          emitKey(key, "keyup");
+          button.classList.remove("isPressed");
+        };
+
+        button.addEventListener("pointerdown", (event) => {
+          event.preventDefault();
+          button.setPointerCapture?.(event.pointerId);
+          button.classList.add("isPressed");
+          emitKey(key, "keydown");
+        });
+        button.addEventListener("pointerup", release);
+        button.addEventListener("pointercancel", release);
+        button.addEventListener("pointerleave", (event) => {
+          if (button.classList.contains("isPressed")) release(event);
+        });
+      });
+    })();
+  </script>
 </body>
 </html>
