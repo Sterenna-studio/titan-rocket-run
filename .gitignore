@@ -7,6 +7,9 @@ Thumbs.db
 # Logs
 *.log
 
+# Dependencies
+node_modules/
+
 # Temporary exports
 dist/
 build/

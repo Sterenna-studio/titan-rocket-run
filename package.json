@@ -2,18 +2,29 @@
   "name": "titan-rocket-run",
   "version": "0.1.0",
   "private": true,
-  "description": "Prototype HTML5 Canvas: Titan court, saute depuis une rampe et va le plus loin possible.",
+  "description": "Runner-platformer Phaser 3: Titan garde son elan, enchaine les plateformes et booste a la rocket.",
   "scripts": {
-    "dev": "python -m http.server 8000",
-    "start": "python -m http.server 8000"
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc && vite build",
+    "preview": "vite preview --host 0.0.0.0"
   },
   "keywords": [
-    "html5",
-    "canvas",
+    "phaser",
+    "typescript",
+    "vite",
     "game",
-    "prototype",
+    "runner",
     "titan"
   ],
   "author": "MutenRock / Pierre H",
-  "license": "UNLICENSED"
+  "license": "UNLICENSED",
+  "dependencies": {
+    "alea": "^1.0.1",
+    "phaser": "^3.87.0",
+    "simplex-noise": "^4.0.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vite": "^8.0.16"
+  }
 }

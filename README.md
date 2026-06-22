@@ -1,109 +1,116 @@
 # Titan Rocket Run
 
-Prototype HTML5 Canvas autour de Titan.
+Runner-platformer autour de Titan, migré du prototype HTML Canvas vanilla vers une base Vite + TypeScript + Phaser 3.
 
-## Concept
+## Stack
 
-Titan devient un **runner-platformer nerveux**, plus proche d'un petit Sonic-like que d'un simple jeu de saut depuis une rampe.
+- Vite pour le serveur de dev et le build.
+- TypeScript pour le code du jeu.
+- Phaser 3 pour le rendu, les scènes, les inputs et la caméra.
+- `alea` pour les seeds reproductibles.
+- `simplex-noise` pour une variation naturelle des plateformes.
+- Les sprites Titan restent chargés depuis `assets/titan_manifest.json`.
 
-Boucle de jeu :
+## Installation
 
-```text
-Run → Platform jumps → Rocket saves → Bones / mines → Distance → Rewards → Upgrades → Retry
+```bash
+npm install
 ```
+
+## Commandes
+
+```bash
+npm run dev
+npm run build
+npm run preview
+```
+
+En dev, ouvrir l'URL affichée par Vite. Le jeu principal est sur `index.html` et l'outil de validation des sprites reste disponible sur `asset-browser.html`.
 
 ## Gameplay
 
-- Maintenir `A` / `D` pour se déplacer et conserver l'élan.
-- Appuyer sur `Espace` pour sauter ; Titan possède un double saut de base.
-- Maintenir `Shift` pour déclencher la rocket, surtout utile en l'air pour sauver un gap.
-- Sauter de plateforme en plateforme le plus loin possible.
-- Ramasser les os pour gagner des bonus, monter le combo et récupérer un peu de rocket.
-- Les mines sont moins punitives qu'avant : elles ralentissent Titan, cassent le combo et donnent un petit knockback, mais elles ne terminent pas la run instantanément.
-- La run se termine surtout quand Titan tombe dans le vide.
-- Le bouton 🔊 en haut à droite coupe / réactive le son.
-- Des contrôles tactiles sont disponibles sur mobile / écran tactile.
+- `A` / `D` ou flèches gauche/droite : déplacement et maintien de l'élan.
+- `Espace` : saut, avec double saut de base.
+- `Shift` : rocket boost en l'air.
+- `R` : relancer la run avec la même seed.
+- Chute dans le vide : fin de run.
+- Les os donnent des bonus, montent le combo et rendent un peu de rocket.
+- Les mines ralentissent Titan, cassent le combo, donnent un petit knockback et une invuln courte, sans tuer instantanément.
 
-## Asset Browser
+Le feeling inclut coyote time, jump buffer, saut variable, friction au sol, air control et caméra avec anticipation vers l'avant.
 
-Une page dédiée permet de consulter et valider facilement les sprites de Titan :
+## Debug
 
-```text
-asset-browser.html
-```
+- `F3` : afficher / masquer l'overlay debug.
+- `F5` : relancer une run avec une nouvelle seed.
+- `H` : afficher / masquer les hitboxes.
 
-Elle permet de :
+L'overlay debug affiche seed, distance, vitesse X/Y, grounded, sauts restants, rocket, plateformes actives, entities actives et combo.
 
-- filtrer par animation ;
-- rechercher une frame ;
-- zoomer les cartes ;
-- prévisualiser une frame en grand ;
-- lire rapidement une animation ;
-- récupérer le chemin exact de chaque PNG.
+## Sauvegarde
 
-## Upgrades
+La sauvegarde reste en `localStorage` avec :
 
-- Chaussures : meilleure accélération et meilleure vitesse au sol.
-- Bottes de saut : sauts plus hauts et air-jumps supplémentaires à haut niveau.
-- Rocket : boost horizontal plus long.
-- Cape aéro : meilleur contrôle en l'air et chute plus douce.
-- Élan de départ : vitesse initiale augmentée.
+- record de distance ;
+- os ;
+- upgrades.
 
-## Lancer le proto
+Les upgrades sont appliqués au démarrage d'une nouvelle run.
 
-Depuis la racine du repo :
-
-```bash
-python -m http.server 8000
-```
-
-Puis ouvrir :
+## Architecture
 
 ```text
-http://localhost:8000
+src/
+  main.ts                  # bridge DOM <-> Phaser, boutique, HUD, touch controls
+  game/
+    config.ts              # config Phaser/Vite runtime
+    constants.ts           # constantes gameplay, events, couleurs
+  scenes/
+    BootScene.ts           # charge manifest + frames Titan
+    MenuScene.ts           # scène menu légère
+    RunScene.ts            # boucle runner-platformer
+    ResultScene.ts         # scène résultat légère
+  player/
+    TitanController.ts     # mouvement, sauts, rocket, collisions plateforme
+    TitanAnimations.ts     # chargement des frames et animations Phaser
+  world/
+    PlatformGenerator.ts   # génération seedée d'une plateforme et de son décor
+    ChunkManager.ts        # fenêtre active de plateformes/entities
+    DifficultyCurve.ts     # progression de difficulté
+  systems/
+    SaveSystem.ts          # localStorage + scoring de fin de run
+    UpgradeSystem.ts       # boutique + stats dérivées
+    CollectibleSystem.ts   # os, texture et collisions circulaires
+    MineSystem.ts          # mines, texture et collisions circulaires
+  types/
+    game.ts                # types partagés
 ```
 
-Pour consulter les assets :
+`asset-browser.html`, `src/asset-browser.js` et `src/asset-browser.css` sont conservés pour inspecter les assets. `vite.config.ts` garde `asset-browser.html` comme entrée de build et copie `assets/` dans `dist/assets` pour que le manifest et les PNG restent disponibles en production.
 
-```text
-http://localhost:8000/asset-browser.html
-```
+## Génération procédurale
 
-Tu peux aussi ouvrir `index.html` directement, mais le serveur local est plus propre pour charger les assets.
+`ChunkManager` maintient une fenêtre de monde active autour de la caméra. `PlatformGenerator` utilise une seed `alea` et du `simplex-noise` pour produire :
 
-## Structure
+- plateformes normales ;
+- plateformes boost ;
+- os au sol ou en hauteur ;
+- mines de plus en plus fréquentes ;
+- gaps, largeurs et hauteurs modulés par `DifficultyCurve`.
 
-```text
-.
-├── index.html
-├── asset-browser.html
-├── package.json
-├── README.md
-├── src/
-│   ├── asset-browser.css
-│   ├── asset-browser.js
-│   ├── game.js
-│   └── style.css
-└── assets/
-    ├── titan_manifest.json
-    └── titan/
-        ├── idle/
-        ├── walk/
-        ├── run/
-        ├── jump/
-        ├── attack_combo/
-        ├── bark_energy_blast/
-        ├── hurt/
-        ├── knockout/
-        └── sit_rest/
-```
+La structure est volontairement simple pour pouvoir ajouter ensuite des chunks faits main, des biomes ou des règles de placement plus spécifiques sans réécrire la scène principale.
 
-## Roadmap rapide
+## Assets Titan
 
-- ✅ Pivot gameplay vers runner-platformer.
-- ✅ Plateformes générées procéduralement.
-- ✅ Double saut + air-jumps via upgrade.
-- ✅ Mines moins punitives.
-- ✅ Contrôles tactiles.
-- ✅ Écran titre + panel de résultats.
-- 🔁 Prochaines passes : level design plus lisible, animations d'atterrissage, pads spéciaux, ennemis et meilleure sensation Sonic-like.
+Les animations Phaser sont créées à partir de `assets/titan_manifest.json` :
+
+- `idle`
+- `walk`
+- `run`
+- `jump`
+- `bark_energy_blast`
+- `hurt`
+- `knockout`
+- `sit_rest`
+
+Les dossiers `assets/` ne sont pas déplacés ni supprimés.

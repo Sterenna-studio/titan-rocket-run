@@ -70,7 +70,20 @@ kbd {
   border: 1px solid var(--line); background: #09120c;
   touch-action: none;
 }
-canvas { width: 100%; height: auto; display: block; image-rendering: auto; background: #09120c; }
+#game-root {
+  width: 100%;
+  min-height: 720px;
+  display: grid;
+  place-items: center;
+  background: #09120c;
+}
+#game-root canvas {
+  width: 100%;
+  height: auto;
+  display: block;
+  image-rendering: auto;
+  background: #09120c;
+}
 .hud {
   position: absolute; left: 18px; right: 18px; top: 14px;
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
@@ -93,9 +106,9 @@ meter { width: calc(100% - 46px); height: 14px; vertical-align: middle; }
 .message b { color: var(--green); font-size: 20px; }
 
 .iconToggle {
-  width: 44px; height: 44px; border-radius: 12px; cursor: pointer;
+  min-width: 54px; height: 44px; border-radius: 12px; cursor: pointer;
   background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1);
-  font-size: 20px; line-height: 1; color: var(--text);
+  font-size: 13px; line-height: 1; color: var(--text); font-weight: 900;
 }
 .iconToggle[aria-pressed="true"] { filter: grayscale(1) brightness(.7); }
 
@@ -199,7 +212,8 @@ meter { width: calc(100% - 46px); height: 14px; vertical-align: middle; }
 @media (hover: none), (pointer: coarse), (max-width: 760px) {
   .touchControls { display: flex; }
   .message { bottom: 94px; width: min(760px, calc(100% - 28px)); }
-  .gameShell { min-height: 640px; }
+  .gameShell,
+  #game-root { min-height: 640px; }
 }
 
 @media (max-width: 640px) {
