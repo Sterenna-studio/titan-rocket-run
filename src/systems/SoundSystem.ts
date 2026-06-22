@@ -56,6 +56,20 @@ export class SoundSystem {
     this.tone({ freq: 260, slideTo: 420, duration: 0.09, type: 'sawtooth', gain: 0.07 });
   }
 
+  launch(charge: number): void {
+    this.tone({
+      freq: 220 + charge * 180,
+      slideTo: 520 + charge * 520,
+      duration: 0.12 + charge * 0.12,
+      type: 'sawtooth',
+      gain: 0.1,
+    });
+  }
+
+  bounce(): void {
+    this.tone({ freq: 420, slideTo: 760, duration: 0.1, type: 'square', gain: 0.1 });
+  }
+
   mine(): void {
     this.tone({ freq: 170, slideTo: 90, duration: 0.16, type: 'sawtooth', gain: 0.13 });
   }

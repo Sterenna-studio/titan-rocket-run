@@ -1,4 +1,4 @@
-export type UpgradeId = 'shoes' | 'ramp' | 'rocket' | 'cape' | 'start';
+export type UpgradeId = 'shoes' | 'ramp' | 'bounce' | 'rocket' | 'cape' | 'start' | 'suit';
 
 export type PlatformKind = 'start' | 'normal' | 'boost';
 
@@ -30,6 +30,10 @@ export interface PlayerStats {
   rocketMax: number;
   topSpeed: number;
   jumpPower: number;
+  airJumpPowerRatio: number;
+  bouncePower: number;
+  bouncePush: number;
+  hasSpaceSuit: boolean;
   startVelocity: number;
   groundAcceleration: number;
   airAcceleration: number;
@@ -43,6 +47,7 @@ export interface InputState {
   left: boolean;
   right: boolean;
   rocket: boolean;
+  jumpHeld: boolean;
 }
 
 export interface PlatformData {
@@ -77,6 +82,7 @@ export interface PlayerStepResult {
   landed: boolean;
   boostPad: boolean;
   rocketUsed: boolean;
+  bounceUsed: boolean;
 }
 
 export interface PlayerSnapshot {
@@ -92,6 +98,7 @@ export interface PlayerSnapshot {
   rocketFuel: number;
   hurt: number;
   invuln: number;
+  spaceExposure: number;
 }
 
 export interface RunStats {
@@ -111,6 +118,7 @@ export interface RunSummary extends RunStats {
   isRecord: boolean;
   badge: string;
   seed: string;
+  finishReason: 'fall' | 'space';
 }
 
 export interface HudState {

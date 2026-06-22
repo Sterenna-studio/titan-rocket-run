@@ -4,6 +4,10 @@ import {
   GAME_HEIGHT,
   GAME_WIDTH,
   GameEvents,
+  GROUND_Y,
+  LAUNCH_CHARGE_SECONDS,
+  SPACE_Y,
+  START_X,
   clamp,
 } from '../game/constants';
 import { TitanController } from '../player/TitanController';
@@ -32,6 +36,7 @@ export class RunScene extends Phaser.Scene {
   private collect = new CollectibleSystem();
   private mines = new MineSystem();
   private platformGraphics!: Phaser.GameObjects.Graphics;
+  private launchGraphics!: Phaser.GameObjects.Graphics;
   private hitboxGraphics!: Phaser.GameObjects.Graphics;
   private debugText!: Phaser.GameObjects.Text;
   private hudText!: Phaser.GameObjects.Text;
@@ -44,6 +49,9 @@ export class RunScene extends Phaser.Scene {
   private playerStats = upgradeSystem.getPlayerStats();
   private jumpBuffer = 0;
   private boostSoundCooldown = 0;
+  private launchCharging = true;
+  private launchCharge = 0;
+  private launchDirection = 1;
   private debugVisible = false;
   private hitboxesVisible = false;
   private ended = false;
@@ -66,6 +74,7 @@ export class RunScene extends Phaser.Scene {
     this.drawBackground();
 
     this.platformGraphics = this.add.graphics().setDepth(8);
+    this.launchGraphics = this.add.graphics().setDepth(65);
     this.hitboxGraphics = this.add.graphics().setDepth(80).setVisible(false);
     this.debugText = this.add
       .text(14, 112, '', {
@@ -100,8 +109,8 @@ export class RunScene extends Phaser.Scene {
     this.emitHud();
     this.game.events.emit(GameEvents.RunStarted);
     this.game.events.emit(GameEvents.Message, {
-      title: 'Go !',
-      body: "Enchaine les plateformes, garde l'elan, double-saute et utilise Shift pour booster.",
+      title: 'Charge le depart',
+      body: 'Maintiens Espace, puis relache pour lancer Titan plus ou moins loin.',
     });
   }
 
@@ -115,6 +124,18 @@ export class RunScene extends Phaser.Scene {
     this.boostSoundCooldown = Math.max(0, this.boostSoundCooldown - dt);
     this.chunk.ensure(this.cameras.main.scrollX, GAME_WIDTH);
 
+    const input = this.getInputState();
+    if (this.launchCharging) {
+      this.updateLaunch(dt, input);
+      this.updateCamera(dt);
+      this.updateParticles(dt);
+      this.drawPlatforms();
+      this.updateHudText();
+      this.updateDebug();
+      this.emitHud();
+      return;
+    }
+
     const beforeJump = this.titan.getSnapshot();
     if (this.jumpBuffer > 0 && this.titan.tryJump()) {
       this.jumpBuffer = 0;
@@ -124,12 +145,16 @@ export class RunScene extends Phaser.Scene {
       this.spawnBurst(snap.x, snap.y + snap.h * 0.68, 14, 0x62ff52);
     }
 
-    const result = this.titan.update(dt, this.getInputState(), this.chunk.platforms);
+    const result = this.titan.update(dt, input, this.chunk.platforms);
     const snap = this.titan.getSnapshot();
     if (result.landed) {
       this.stats.landed += 1;
       soundSystem.land();
       this.spawnDust(snap.x, snap.y + snap.h);
+    }
+    if (result.bounceUsed) {
+      soundSystem.bounce();
+      this.spawnBurst(snap.x, snap.y + snap.h, 18, 0x8cfffb);
     }
     if (result.boostPad) {
       if (this.boostSoundCooldown <= 0) {
@@ -233,7 +258,38 @@ export class RunScene extends Phaser.Scene {
       left: this.keys.a.isDown || this.keys.q.isDown || this.keys.left.isDown || this.virtualDown.has('a'),
       right: this.keys.d.isDown || this.keys.right.isDown || this.virtualDown.has('d'),
       rocket: this.keys.shift.isDown || this.virtualDown.has('shift'),
+      jumpHeld: this.keys.space.isDown || this.virtualDown.has('space'),
     };
+  }
+
+  private updateLaunch(dt: number, input: InputState): void {
+    this.jumpBuffer = 0;
+    this.launchDirection = 1;
+
+    if (input.jumpHeld) {
+      this.launchCharge = Math.min(LAUNCH_CHARGE_SECONDS, this.launchCharge + dt);
+    } else if (this.launchCharge > 0) {
+      this.fireChargedLaunch();
+    }
+
+    this.drawLaunchMeter();
+  }
+
+  private fireChargedLaunch(): void {
+    const charge = clamp(this.launchCharge / LAUNCH_CHARGE_SECONDS, 0, 1);
+    const snap = this.titan.getSnapshot();
+
+    this.launchCharging = false;
+    this.launchCharge = 0;
+    this.launchGraphics.clear();
+    this.titan.launch(charge, this.launchDirection);
+    this.stats.jumps += 1;
+    soundSystem.launch(charge);
+    this.spawnBurst(snap.x, snap.y + snap.h, 12 + Math.round(charge * 18), charge > 0.82 ? 0x8cfffb : 0x62ff52);
+    this.game.events.emit(GameEvents.Message, {
+      title: charge > 0.82 ? 'Super depart !' : 'Go !',
+      body: "Garde l'elan, double-saute, rebondis avec les bottes et surveille l'altitude.",
+    });
   }
 
   private handleEntities(): void {
@@ -287,8 +343,18 @@ export class RunScene extends Phaser.Scene {
   private drawBackground(): void {
     this.add.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x07150d).setOrigin(0).setScrollFactor(0).setDepth(-20);
     const bg = this.add.graphics().setScrollFactor(0).setDepth(-19);
+    bg.fillStyle(0x02040b, 1);
+    bg.fillRect(0, 0, GAME_WIDTH, SPACE_Y + 20);
+    bg.fillStyle(0x061a28, 1);
+    bg.fillRect(0, SPACE_Y + 20, GAME_WIDTH, 170);
     bg.fillStyle(0x0b2112, 1);
-    bg.fillRect(0, 320, GAME_WIDTH, 400);
+    bg.fillRect(0, 300, GAME_WIDTH, 420);
+    bg.fillStyle(0xe9fff0, 0.8);
+    for (let i = 0; i < 42; i += 1) {
+      const x = (i * 137) % GAME_WIDTH;
+      const y = 12 + ((i * 53) % Math.max(1, SPACE_Y - 8));
+      bg.fillCircle(x, y, i % 5 === 0 ? 2 : 1);
+    }
     bg.fillStyle(COLORS.green, 0.045);
     bg.lineStyle(2, COLORS.green, 0.075);
     for (let x = -60; x < GAME_WIDTH + 260; x += 300) {
@@ -300,12 +366,43 @@ export class RunScene extends Phaser.Scene {
   private drawPlatforms(): void {
     this.platformGraphics.clear();
     for (const platform of this.chunk.platforms) {
-      const color = platform.kind === 'boost' ? COLORS.boost : COLORS.platform;
+      const color = platform.kind === 'boost' ? COLORS.boost : this.getBiomePlatformColor(platform.x);
+      const accent = platform.kind === 'boost' ? COLORS.green : this.getBiomeAccentColor(platform.x);
       this.platformGraphics.fillStyle(color, 1);
       this.platformGraphics.fillRoundedRect(platform.x, platform.y, platform.w, platform.h, 12);
-      this.platformGraphics.lineStyle(platform.kind === 'boost' ? 4 : 3, COLORS.green, platform.kind === 'boost' ? 0.75 : 0.42);
+      this.platformGraphics.lineStyle(platform.kind === 'boost' ? 4 : 3, accent, platform.kind === 'boost' ? 0.75 : 0.42);
       this.platformGraphics.strokeRoundedRect(platform.x, platform.y, platform.w, platform.h, 12);
     }
+  }
+
+  private getBiomePlatformColor(x: number): number {
+    return [COLORS.platform, 0x172638, 0x2a2440, 0x302514][this.getBiomeIndex(x)];
+  }
+
+  private getBiomeAccentColor(x: number): number {
+    return [COLORS.green, 0x65d9ff, 0xd6a0ff, 0xffd36a][this.getBiomeIndex(x)];
+  }
+
+  private getBiomeIndex(x: number): number {
+    return Math.floor(Math.max(0, x) / 2200) % 4;
+  }
+
+  private drawLaunchMeter(): void {
+    this.launchGraphics.clear();
+    if (!this.launchCharging) {
+      return;
+    }
+
+    const ratio = clamp(this.launchCharge / LAUNCH_CHARGE_SECONDS, 0, 1);
+    const x = START_X - 78;
+    const y = GROUND_Y - 185;
+
+    this.launchGraphics.fillStyle(0x041108, 0.9);
+    this.launchGraphics.fillRoundedRect(x, y, 156, 18, 9);
+    this.launchGraphics.lineStyle(2, COLORS.green, 0.58);
+    this.launchGraphics.strokeRoundedRect(x, y, 156, 18, 9);
+    this.launchGraphics.fillStyle(ratio > 0.82 ? 0x8cfffb : COLORS.green, 0.95);
+    this.launchGraphics.fillRoundedRect(x + 4, y + 4, 148 * ratio, 10, 5);
   }
 
   private syncEntitySprites(time: number): void {
@@ -336,6 +433,12 @@ export class RunScene extends Phaser.Scene {
   }
 
   private updateHudText(): void {
+    if (this.launchCharging) {
+      const charge = Math.round(clamp(this.launchCharge / LAUNCH_CHARGE_SECONDS, 0, 1) * 100);
+      this.hudText.setText(`charge\n${charge}%`);
+      return;
+    }
+
     this.hudText.setText(`${this.stats.distance.toFixed(1)} m\ncombo x${this.stats.combo}`);
   }
 
@@ -363,6 +466,8 @@ export class RunScene extends Phaser.Scene {
           `grounded: ${snap.grounded}`,
           `jumps left: ${snap.jumpsLeft}`,
           `rocket: ${snap.rocketFuel.toFixed(1)} / ${this.playerStats.rocketMax}`,
+          `bounce: ${this.playerStats.bouncePower.toFixed(0)}`,
+          `space: ${snap.spaceExposure.toFixed(2)} / suit ${this.playerStats.hasSpaceSuit}`,
           `platforms: ${this.chunk.platforms.length}`,
           `entities: ${this.chunk.entities.length}`,
           `combo: ${this.stats.combo}`,
@@ -441,7 +546,14 @@ export class RunScene extends Phaser.Scene {
     this.ended = true;
     this.titan.knockOut();
     soundSystem.finish();
-    const summary: RunSummary = saveSystem.recordRun(this.stats, this.seed);
+    const finishReason: RunSummary['finishReason'] = this.titan.isLostInSpace() ? 'space' : 'fall';
+    if (finishReason === 'space') {
+      this.game.events.emit(GameEvents.Message, {
+        title: "Perdu dans l'espace",
+        body: 'La tenue cosmonaute protege Titan quand la gravite devient trop faible.',
+      });
+    }
+    const summary: RunSummary = saveSystem.recordRun(this.stats, this.seed, finishReason);
     this.game.events.emit(GameEvents.SaveChanged, saveSystem.getSnapshot());
     this.game.events.emit(GameEvents.RunFinished, summary);
     this.scene.start('ResultScene', { summary });

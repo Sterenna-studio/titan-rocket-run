@@ -33,12 +33,17 @@ export class UpgradeSystem {
   getPlayerStats(): PlayerStats {
     const save = this.saves.getSnapshot();
     const level = (id: UpgradeId) => save.upgrades[id] ?? 0;
+    const bounceLevel = level('bounce');
 
     return {
-      maxJumps: 2 + Math.floor(level('ramp') / 4),
+      maxJumps: 2 + Math.floor(level('ramp') / 3),
       rocketMax: 70 + level('rocket') * 18,
       topSpeed: 820 + level('shoes') * 70 + level('start') * 18,
       jumpPower: 760 + level('ramp') * 32,
+      airJumpPowerRatio: Math.min(1, 0.88 + level('ramp') * 0.018),
+      bouncePower: bounceLevel > 0 ? 500 + bounceLevel * 42 : 0,
+      bouncePush: bounceLevel > 0 ? 80 + bounceLevel * 18 : 0,
+      hasSpaceSuit: level('suit') > 0,
       startVelocity: 260 + level('start') * 45,
       groundAcceleration: 1320 + level('shoes') * 95,
       airAcceleration: 760 + level('cape') * 62,

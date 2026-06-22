@@ -2,8 +2,15 @@ import Phaser from 'phaser';
 import {
   DEATH_Y,
   GRAVITY,
+  LAUNCH_MAX_VX,
+  LAUNCH_MAX_VY,
+  LAUNCH_MIN_VX,
+  LAUNCH_MIN_VY,
   PLAYER_HEIGHT,
   PLAYER_WIDTH,
+  SKY_Y,
+  SPACE_LOST_SECONDS,
+  SPACE_Y,
   START_X,
   TITAN_BOTTOM_PAD,
   WORLD_SCALE,
@@ -30,12 +37,15 @@ export class TitanController {
   private facing = 1;
   private currentAnimation: TitanAnimationName = 'idle';
   private rotation = 0;
+  private launchSpeedCapBonus = 0;
 
   constructor(private readonly scene: Phaser.Scene, stats: PlayerStats) {
     this.stats = stats;
     this.state = this.createInitialState(stats);
     this.sprite = scene.add.sprite(START_X, GROUND_Y + TITAN_BOTTOM_PAD, defaultTitanFrame()).setOrigin(0.5, 1).setDepth(20);
     scaleTitanSprite(scene, this.sprite);
+    this.sprite.on(Phaser.Animations.Events.ANIMATION_UPDATE, () => scaleTitanSprite(scene, this.sprite));
+    this.sprite.on(Phaser.Animations.Events.ANIMATION_START, () => scaleTitanSprite(scene, this.sprite));
     this.play('idle');
     this.syncSprite();
   }
@@ -45,6 +55,7 @@ export class TitanController {
     this.state = this.createInitialState(stats);
     this.facing = 1;
     this.rotation = 0;
+    this.launchSpeedCapBonus = 0;
     this.currentAnimation = 'idle';
     this.play('run');
     this.syncSprite();
@@ -54,6 +65,7 @@ export class TitanController {
     const wasGrounded = this.state.grounded;
     let rocketUsed = false;
     let boostPad = false;
+    let bounceUsed = false;
 
     this.state.hurt = Math.max(0, this.state.hurt - dt);
     this.state.invuln = Math.max(0, this.state.invuln - dt);
@@ -83,18 +95,30 @@ export class TitanController {
       this.state.rocketFuel = Math.min(this.stats.rocketMax, this.state.rocketFuel + 8 * dt);
     }
 
-    this.state.vx = clamp(this.state.vx, -this.stats.topSpeed * 0.74, this.stats.topSpeed + (rocketUsed ? 580 : 0));
+    this.state.vx = clamp(
+      this.state.vx,
+      -this.stats.topSpeed * 0.74 - this.launchSpeedCapBonus * 0.5,
+      this.stats.topSpeed + (rocketUsed ? 580 : 0) + this.launchSpeedCapBonus,
+    );
+    this.launchSpeedCapBonus = Math.max(0, this.launchSpeedCapBonus - 720 * dt);
+    this.updateSpaceExposure(dt);
 
     const prevY = this.state.y;
-    this.state.vy += GRAVITY * this.stats.gravityScale * dt;
+    this.state.vy += GRAVITY * this.stats.gravityScale * this.getAltitudeGravityScale() * dt;
     this.state.vy = Math.min(this.state.vy, 1180);
     this.state.x += this.state.vx * dt;
     this.state.y += this.state.vy * dt;
 
+    const impactVy = this.state.vy;
     const collision = this.collidePlatforms(prevY, platforms, wasGrounded);
     boostPad = collision.boostPad;
     if (boostPad && Math.abs(this.state.vx) < this.stats.topSpeed * 0.96) {
       this.state.vx += this.facing * 230;
+    }
+
+    if (collision.landed && input.jumpHeld && this.stats.bouncePower > 0 && impactVy > 360) {
+      this.rebound(impactVy);
+      bounceUsed = true;
     }
 
     if (!this.state.grounded && wasGrounded) {
@@ -110,6 +134,7 @@ export class TitanController {
       landed: collision.landed,
       boostPad,
       rocketUsed,
+      bounceUsed,
     };
   }
 
@@ -126,11 +151,25 @@ export class TitanController {
     } else {
       this.state.jumpsLeft = Math.max(0, this.stats.maxJumps - 1);
     }
-    this.state.vy = -this.stats.jumpPower * (groundJump ? 1 : 0.88);
+    this.state.vy = -this.stats.jumpPower * (groundJump ? 1 : this.stats.airJumpPowerRatio);
     this.state.vx += this.facing * (groundJump ? 18 : 36);
     this.play('jump', true);
     this.syncSprite();
     return true;
+  }
+
+  launch(charge: number, direction: number): void {
+    const power = clamp(charge, 0, 1);
+    this.facing = direction < 0 ? -1 : 1;
+    this.state.grounded = false;
+    this.state.coyote = 0;
+    this.state.jumpsLeft = Math.max(0, this.stats.maxJumps - 1);
+    this.launchSpeedCapBonus = LAUNCH_MIN_VX + LAUNCH_MAX_VX * power + this.stats.startVelocity * 0.5;
+    this.state.vx = this.facing * (this.stats.startVelocity + this.launchSpeedCapBonus);
+    this.state.vy = -(LAUNCH_MIN_VY + LAUNCH_MAX_VY * power);
+    this.state.rocketFuel = Math.min(this.stats.rocketMax, this.state.rocketFuel + 12 + power * 18);
+    this.play('jump', true);
+    this.syncSprite();
   }
 
   releaseJump(): void {
@@ -151,8 +190,11 @@ export class TitanController {
 
     this.state.invuln = 0.65;
     this.state.hurt = 0.38;
-    this.state.vx *= 0.76;
-    this.state.vy = Math.min(this.state.vy, -260);
+    this.state.vx *= this.stats.bouncePower > 0 ? 0.86 : 0.76;
+    this.state.vy = Math.min(this.state.vy, this.stats.bouncePower > 0 ? -this.stats.bouncePower * 0.82 : -260);
+    if (this.stats.bouncePower > 0) {
+      this.state.vx += this.facing * this.stats.bouncePush;
+    }
     this.play('hurt', true);
     return true;
   }
@@ -162,7 +204,11 @@ export class TitanController {
   }
 
   isDead(): boolean {
-    return this.state.y > DEATH_Y;
+    return this.state.y > DEATH_Y || this.isLostInSpace();
+  }
+
+  isLostInSpace(): boolean {
+    return !this.stats.hasSpaceSuit && (this.state.spaceExposure >= SPACE_LOST_SECONDS || this.state.y < -320);
   }
 
   getSnapshot(): PlayerSnapshot {
@@ -195,6 +241,7 @@ export class TitanController {
       rocketFuel: stats.rocketMax,
       hurt: 0,
       invuln: 0,
+      spaceExposure: 0,
     };
   }
 
@@ -224,6 +271,37 @@ export class TitanController {
     }
 
     return { landed: false, boostPad: false };
+  }
+
+  private rebound(impactVy: number): void {
+    const extra = clamp(impactVy * 0.16, 0, 180);
+    this.state.grounded = false;
+    this.state.coyote = 0;
+    this.state.vy = -(this.stats.bouncePower + extra);
+    this.state.vx += this.facing * this.stats.bouncePush;
+    this.state.jumpsLeft = Math.max(0, this.stats.maxJumps - 1);
+    this.play('jump', true);
+  }
+
+  private getAltitudeGravityScale(): number {
+    if (this.state.y < SPACE_Y) {
+      return this.stats.hasSpaceSuit ? 0.28 : 0.12;
+    }
+
+    if (this.state.y < SKY_Y) {
+      return 0.58;
+    }
+
+    return 1;
+  }
+
+  private updateSpaceExposure(dt: number): void {
+    if (this.state.y < SPACE_Y && !this.stats.hasSpaceSuit) {
+      this.state.spaceExposure += dt;
+      return;
+    }
+
+    this.state.spaceExposure = Math.max(0, this.state.spaceExposure - dt * 2);
   }
 
   private pickAnimation(rocketUsed: boolean): void {
@@ -256,6 +334,7 @@ export class TitanController {
 
     this.currentAnimation = animation;
     this.sprite.play(titanAnimKey(animation), restart);
+    scaleTitanSprite(this.scene, this.sprite);
   }
 
   private syncSprite(): void {

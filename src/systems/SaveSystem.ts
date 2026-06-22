@@ -10,9 +10,11 @@ function createDefaultSave(): SaveData {
     upgrades: {
       shoes: 0,
       ramp: 0,
+      bounce: 0,
       rocket: 0,
       cape: 0,
       start: 0,
+      suit: 0,
     },
   };
 }
@@ -80,7 +82,7 @@ export class SaveSystem {
     return true;
   }
 
-  recordRun(stats: RunStats, seed = ''): RunSummary {
+  recordRun(stats: RunStats, seed = '', finishReason: RunSummary['finishReason'] = 'fall'): RunSummary {
     const distance = Math.max(0, stats.distance);
     const reward = Math.max(
       1,
@@ -107,6 +109,7 @@ export class SaveSystem {
       isRecord,
       badge: pickBadge(stats),
       seed,
+      finishReason,
     };
   }
 

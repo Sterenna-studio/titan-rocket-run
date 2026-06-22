@@ -47,7 +47,7 @@ export function registerTitanAnimations(scene: Phaser.Scene, manifest: TitanAnim
 }
 
 export function scaleTitanSprite(scene: Phaser.Scene, sprite: Phaser.GameObjects.Sprite): void {
-  const frame = scene.textures.getFrame(defaultTitanFrame());
+  const frame = sprite.frame || scene.textures.getFrame(defaultTitanFrame());
   const sourceHeight = frame?.height || 395;
   sprite.setScale(TITAN_DISPLAY_HEIGHT / sourceHeight);
 }

@@ -33,8 +33,9 @@ export class ResultScene extends Phaser.Scene {
     titan.play(titanAnimKey('knockout'));
 
     const distance = this.summary ? `${this.summary.distance.toFixed(1)} m` : '0 m';
+    const title = this.summary?.finishReason === 'space' ? "Perdu dans l'espace" : 'Run terminee';
     this.add
-      .text(GAME_WIDTH / 2, 548, `Run terminee - ${distance}`, {
+      .text(GAME_WIDTH / 2, 548, `${title} - ${distance}`, {
         color: COLORS.text,
         fontFamily: 'system-ui, sans-serif',
         fontSize: '24px',

@@ -118,7 +118,8 @@ function showResult(summary: RunSummary): void {
   ui.resBones.textContent = `${summary.pickups} (+${summary.bonusBones})`;
   ui.resHits.textContent = `${summary.hits}`;
   ui.resReward.textContent = `+${summary.reward}`;
-  ui.resTitle.textContent = summary.isRecord ? 'Nouveau record !' : 'Run termine';
+  ui.resTitle.textContent =
+    summary.finishReason === 'space' ? "Perdu dans l'espace" : summary.isRecord ? 'Nouveau record !' : 'Run termine';
   ui.resBadge.textContent = summary.badge;
   ui.resBadge.classList.toggle('hidden', !summary.badge);
 }

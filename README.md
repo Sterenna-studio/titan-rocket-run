@@ -34,12 +34,17 @@ Le workflow OVH installe les dépendances avec `npm ci`, lance `npm run build`, 
 ## Gameplay
 
 - `A` / `D` ou flèches gauche/droite : déplacement et maintien de l'élan.
-- `Espace` : saut, avec double saut de base.
+- Au depart : maintenir `Espace`, puis relacher pour charger le premier saut et partir plus ou moins loin.
+- `Espace` en run : saut, avec double saut de base.
 - `Shift` : rocket boost en l'air.
 - `R` : relancer la run avec la même seed.
 - Chute dans le vide : fin de run.
 - Les os donnent des bonus, montent le combo et rendent un peu de rocket.
 - Les mines ralentissent Titan, cassent le combo, donnent un petit knockback et une invuln courte, sans tuer instantanément.
+- Les bottes double saut augmentent les air-jumps et leur hauteur.
+- Les bottes rebondissantes permettent de maintenir `Espace` en atterrissant pour repartir vers le haut.
+- Le ciel haut réduit la gravité. Dans l'espace, Titan est perdu sans la tenue cosmonaute.
+- Les plateformes changent de teinte par biome de distance, ce qui rend les gros départs chargés lisibles.
 
 Le feeling inclut coyote time, jump buffer, saut variable, friction au sol, air control et caméra avec anticipation vers l'avant.
 
@@ -84,6 +89,7 @@ src/
   systems/
     SaveSystem.ts          # localStorage + scoring de fin de run
     UpgradeSystem.ts       # boutique + stats dérivées
+    SoundSystem.ts         # sons WebAudio proceduraux
     CollectibleSystem.ts   # os, texture et collisions circulaires
     MineSystem.ts          # mines, texture et collisions circulaires
   types/

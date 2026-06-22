@@ -12,6 +12,14 @@ export const DEATH_Y = 940;
 export const GRAVITY = 1900;
 export const WORLD_AHEAD = 2200;
 export const WORLD_BEHIND = 650;
+export const SKY_Y = 230;
+export const SPACE_Y = 96;
+export const SPACE_LOST_SECONDS = 1.1;
+export const LAUNCH_CHARGE_SECONDS = 1.55;
+export const LAUNCH_MIN_VX = 420;
+export const LAUNCH_MAX_VX = 3600;
+export const LAUNCH_MIN_VY = 560;
+export const LAUNCH_MAX_VY = 1120;
 
 export const PLAYER_WIDTH = 62;
 export const PLAYER_HEIGHT = 126;
@@ -35,10 +43,12 @@ export const COLORS = {
 
 export const UPGRADE_DEFINITIONS: Record<UpgradeId, UpgradeDefinition> = {
   shoes: { name: 'Chaussures', desc: "Acceleration et vitesse au sol.", base: 35, max: 8 },
-  ramp: { name: 'Bottes de saut', desc: 'Sauts plus hauts et air-jumps.', base: 50, max: 8 },
+  ramp: { name: 'Bottes double saut', desc: 'Air-jumps plus hauts et plus nombreux.', base: 50, max: 8 },
+  bounce: { name: 'Bottes rebondissantes', desc: 'Maintiens saut en atterrissant pour rebondir.', base: 45, max: 8 },
   rocket: { name: 'Rocket', desc: 'Boost horizontal avec Shift.', base: 60, max: 8 },
   cape: { name: 'Cape aero', desc: "Meilleur controle en l'air.", base: 40, max: 8 },
   start: { name: 'Elan de depart', desc: 'Vitesse initiale augmentee.', base: 30, max: 8 },
+  suit: { name: 'Tenue cosmonaute', desc: "Survie dans l'espace.", base: 180, max: 1 },
 };
 
 export const GameEvents = {
