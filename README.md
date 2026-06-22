@@ -45,6 +45,8 @@ Le workflow OVH installe les dépendances avec `npm ci`, lance `npm run build`, 
 - Les bottes rebondissantes permettent de maintenir `Espace` en atterrissant pour repartir vers le haut.
 - Le ciel haut réduit la gravité. Dans l'espace, Titan est perdu sans la tenue cosmonaute.
 - Les plateformes changent de teinte par biome de distance, ce qui rend les gros départs chargés lisibles.
+- Des lieux fixes déclenchent une mini-histoire avec récompenses immédiates : os, rocket, boost de vitesse, bannière et balise lumineuse.
+- Les combos rendent les os plus rentables toutes les 4 prises, jusqu'à ce qu'une mine casse la série.
 
 Le feeling inclut coyote time, jump buffer, saut variable, friction au sol, air control et caméra avec anticipation vers l'avant.
 
@@ -89,6 +91,7 @@ src/
   systems/
     SaveSystem.ts          # localStorage + scoring de fin de run
     UpgradeSystem.ts       # boutique + stats dérivées
+    RunMilestones.ts       # lieux d'histoire, distances fixes et récompenses
     SoundSystem.ts         # sons WebAudio proceduraux
     CollectibleSystem.ts   # os, texture et collisions circulaires
     MineSystem.ts          # mines, texture et collisions circulaires

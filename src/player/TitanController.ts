@@ -183,6 +183,16 @@ export class TitanController {
     this.state.vx += this.facing * (24 + value);
   }
 
+  awardRunReward(rocketPercent: number, speedBoost: number): void {
+    const rocketGain = this.stats.rocketMax * clamp(rocketPercent, 0, 100) / 100;
+    this.state.rocketFuel = Math.min(this.stats.rocketMax, this.state.rocketFuel + rocketGain);
+    this.state.vx += this.facing * speedBoost;
+    if (this.state.vy > -260) {
+      this.state.vy -= 120;
+    }
+    this.syncSprite();
+  }
+
   applyMineHit(): boolean {
     if (this.state.invuln > 0) {
       return false;

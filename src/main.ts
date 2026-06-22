@@ -44,7 +44,7 @@ let soundMuted = false;
 renderSave(saveSystem.getSnapshot());
 renderMessage({
   title: 'Pret ?',
-  body: "Platformer runner : garde l'elan, enchaine les plateformes, utilise les doubles sauts et la rocket.",
+  body: "Charge ton depart, poursuis les signaux de Titan et empile les combos d'os.",
 });
 
 ui.playBtn.addEventListener('click', () => requestStart());
@@ -120,8 +120,9 @@ function showResult(summary: RunSummary): void {
   ui.resReward.textContent = `+${summary.reward}`;
   ui.resTitle.textContent =
     summary.finishReason === 'space' ? "Perdu dans l'espace" : summary.isRecord ? 'Nouveau record !' : 'Run termine';
-  ui.resBadge.textContent = summary.badge;
-  ui.resBadge.classList.toggle('hidden', !summary.badge);
+  const badge = summary.storyEvents > 0 ? `${summary.badge || 'Route decouverte'} - ${summary.storyEvents} signal(s)` : summary.badge;
+  ui.resBadge.textContent = badge;
+  ui.resBadge.classList.toggle('hidden', !badge);
 }
 
 function updateHud(hud: HudState): void {

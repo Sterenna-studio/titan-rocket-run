@@ -8,15 +8,17 @@ import {
   LAUNCH_CHARGE_SECONDS,
   SPACE_Y,
   START_X,
+  WORLD_SCALE,
   clamp,
 } from '../game/constants';
 import { TitanController } from '../player/TitanController';
 import { CollectibleSystem } from '../systems/CollectibleSystem';
 import { MineSystem } from '../systems/MineSystem';
+import { RUN_MILESTONES, getNextMilestone } from '../systems/RunMilestones';
 import { saveSystem } from '../systems/SaveSystem';
 import { soundSystem } from '../systems/SoundSystem';
 import { upgradeSystem } from '../systems/UpgradeSystem';
-import type { HudState, InputState, RunStats, RunSummary, VirtualInput } from '../types/game';
+import type { HudState, InputState, RunMilestone, RunStats, RunSummary, VirtualInput } from '../types/game';
 import { ChunkManager } from '../world/ChunkManager';
 
 interface Particle {
@@ -46,6 +48,7 @@ export class RunScene extends Phaser.Scene {
   private hitboxGraphics!: Phaser.GameObjects.Graphics;
   private debugText!: Phaser.GameObjects.Text;
   private hudText!: Phaser.GameObjects.Text;
+  private milestoneBanner!: Phaser.GameObjects.Text;
   private flash!: Phaser.GameObjects.Rectangle;
   private backgroundLayers: ParallaxLayer[] = [];
   private entitySprites = new Map<number, Phaser.GameObjects.Image>();
@@ -53,6 +56,7 @@ export class RunScene extends Phaser.Scene {
   private keys!: KeyMap;
   private virtualDown = new Set<VirtualInput['key']>();
   private stats!: RunStats;
+  private reachedMilestones = new Set<string>();
   private playerStats = upgradeSystem.getPlayerStats();
   private jumpBuffer = 0;
   private boostSoundCooldown = 0;
@@ -74,6 +78,9 @@ export class RunScene extends Phaser.Scene {
   create(): void {
     this.playerStats = upgradeSystem.getPlayerStats();
     this.stats = this.createStats();
+    this.reachedMilestones.clear();
+    this.launchCharging = true;
+    this.launchCharge = 0;
     this.chunk = new ChunkManager(this.seed);
 
     this.collect.createTextures(this);
@@ -106,6 +113,21 @@ export class RunScene extends Phaser.Scene {
       .setOrigin(1, 0)
       .setScrollFactor(0)
       .setDepth(60);
+    this.milestoneBanner = this.add
+      .text(GAME_WIDTH / 2, 185, '', {
+        align: 'center',
+        color: COLORS.text,
+        backgroundColor: 'rgba(4,14,8,.84)',
+        fontFamily: 'system-ui, sans-serif',
+        fontSize: '24px',
+        fontStyle: '900',
+        lineSpacing: 4,
+        padding: { x: 18, y: 12 },
+      })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(75)
+      .setAlpha(0);
     this.flash = this.add.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0xff503c, 0).setOrigin(0).setScrollFactor(0).setDepth(90);
 
     this.titan = new TitanController(this, this.playerStats);
@@ -117,7 +139,7 @@ export class RunScene extends Phaser.Scene {
     this.game.events.emit(GameEvents.RunStarted);
     this.game.events.emit(GameEvents.Message, {
       title: 'Charge le depart',
-      body: 'Maintiens Espace, puis relache pour lancer Titan plus ou moins loin.',
+      body: 'Maintiens Espace, relache, puis vise les balises lumineuses pour declencher les recompenses.',
     });
   }
 
@@ -177,6 +199,7 @@ export class RunScene extends Phaser.Scene {
 
     this.handleEntities();
     this.updateStats();
+    this.handleMilestones();
     this.updateCamera(dt);
     this.updateBackground();
     this.updateParticles(dt);
@@ -307,13 +330,21 @@ export class RunScene extends Phaser.Scene {
 
     for (const bone of this.collect.findCollected(player, this.chunk.entities, time)) {
       this.chunk.markEntityHit(bone.id);
-      this.titan.collectBone(bone.value);
-      this.stats.pickups += 1;
-      this.stats.bonusBones += bone.value;
       this.stats.combo += 1;
+      const comboBonus = Math.floor(this.stats.combo / 4);
+      const earnedBones = bone.value + comboBonus;
+      this.titan.collectBone(earnedBones);
+      this.stats.pickups += 1;
+      this.stats.bonusBones += earnedBones;
       this.stats.bestCombo = Math.max(this.stats.bestCombo, this.stats.combo);
       soundSystem.collect();
-      this.spawnBurst(bone.x, bone.y, 14, 0x62ff52);
+      this.spawnBurst(bone.x, bone.y, 14 + comboBonus * 2, comboBonus > 0 ? 0xffd36a : 0x62ff52);
+      if (comboBonus > 0 && this.stats.combo % 4 === 0) {
+        this.game.events.emit(GameEvents.Message, {
+          title: `Combo x${this.stats.combo}`,
+          body: `Bonus serie : +${comboBonus} os sur chaque ramassage.`,
+        });
+      }
     }
 
     for (const mine of this.mines.findHits(player, this.chunk.entities, time)) {
@@ -339,6 +370,59 @@ export class RunScene extends Phaser.Scene {
     const snap = this.titan.getSnapshot();
     this.stats.distance = this.titan.getDistanceMeters();
     this.stats.maxSpeed = Math.max(this.stats.maxSpeed, Math.abs(snap.vx));
+  }
+
+  private handleMilestones(): void {
+    for (const milestone of RUN_MILESTONES) {
+      if (this.reachedMilestones.has(milestone.id) || this.stats.distance < milestone.distance) {
+        continue;
+      }
+
+      this.triggerMilestone(milestone);
+    }
+  }
+
+  private triggerMilestone(milestone: RunMilestone): void {
+    this.reachedMilestones.add(milestone.id);
+    this.stats.storyEvents += 1;
+    this.stats.bonusBones += milestone.rewardBones;
+    this.stats.pickups += 1;
+    this.stats.combo += 2;
+    this.stats.bestCombo = Math.max(this.stats.bestCombo, this.stats.combo);
+    this.stats.bestMilestone = milestone.badge || milestone.title;
+
+    const snap = this.titan.getSnapshot();
+    this.titan.awardRunReward(milestone.rocketPercent, milestone.speedBoost);
+    soundSystem.milestone();
+    this.spawnBurst(snap.x, snap.y + snap.h * 0.45, 28, milestone.color);
+    this.spawnBurst(this.getMilestoneWorldX(milestone), Math.max(80, snap.y), 20, milestone.color);
+    this.cameras.main.flash(180, 255, 255, 255, false);
+    this.game.events.emit(GameEvents.Message, {
+      title: `${milestone.title} +${milestone.rewardBones} os`,
+      body: milestone.body,
+    });
+    this.showMilestoneBanner(milestone);
+  }
+
+  private showMilestoneBanner(milestone: RunMilestone): void {
+    this.milestoneBanner.setText(`${milestone.title}\n+${milestone.rewardBones} os  •  rocket +${milestone.rocketPercent}%`);
+    this.milestoneBanner.setTint(milestone.color);
+    this.milestoneBanner.setAlpha(0);
+    this.milestoneBanner.setScale(0.92);
+    this.tweens.killTweensOf(this.milestoneBanner);
+    this.tweens.add({
+      targets: this.milestoneBanner,
+      alpha: 1,
+      scale: 1,
+      duration: 150,
+      ease: 'Back.Out',
+      yoyo: true,
+      hold: 1300,
+    });
+  }
+
+  private getMilestoneWorldX(milestone: RunMilestone): number {
+    return START_X + milestone.distance / WORLD_SCALE;
   }
 
   private updateCamera(dt: number): void {
@@ -514,6 +598,29 @@ export class RunScene extends Phaser.Scene {
       this.platformGraphics.lineStyle(platform.kind === 'boost' ? 4 : 3, accent, platform.kind === 'boost' ? 0.75 : 0.42);
       this.platformGraphics.strokeRoundedRect(platform.x, platform.y, platform.w, platform.h, 12);
     }
+    this.drawMilestoneBeacons();
+  }
+
+  private drawMilestoneBeacons(): void {
+    const cameraX = this.cameras.main.scrollX;
+    for (const milestone of RUN_MILESTONES) {
+      if (this.reachedMilestones.has(milestone.id)) {
+        continue;
+      }
+
+      const x = this.getMilestoneWorldX(milestone);
+      if (x < cameraX - 160 || x > cameraX + GAME_WIDTH + 320) {
+        continue;
+      }
+
+      const pulse = 0.62 + Math.sin(this.time.now / 180) * 0.2;
+      this.platformGraphics.lineStyle(3, milestone.color, pulse);
+      this.platformGraphics.lineBetween(x, 118, x, GROUND_Y - 36);
+      this.platformGraphics.fillStyle(milestone.color, 0.22 + pulse * 0.22);
+      this.platformGraphics.fillCircle(x, 118, 24);
+      this.platformGraphics.fillStyle(milestone.color, 0.92);
+      this.platformGraphics.fillTriangle(x - 12, 118, x + 18, 106, x + 18, 130);
+    }
   }
 
   private getBiomePlatformColor(x: number): number {
@@ -580,7 +687,9 @@ export class RunScene extends Phaser.Scene {
       return;
     }
 
-    this.hudText.setText(`${this.stats.distance.toFixed(1)} m\ncombo x${this.stats.combo}`);
+    const nextDistance = Math.ceil(this.getNextGoalDistance());
+    const nextLine = nextDistance > 0 ? `${this.getNextGoalLabel()} ${nextDistance}m` : 'Signal final';
+    this.hudText.setText(`${this.stats.distance.toFixed(1)} m\ncombo x${this.stats.combo}\n${nextLine}`);
   }
 
   private emitHud(): void {
@@ -592,8 +701,20 @@ export class RunScene extends Phaser.Scene {
       jumpsLeft: snap.grounded ? this.playerStats.maxJumps : snap.jumpsLeft,
       maxJumps: this.playerStats.maxJumps,
       rocketPercent: clamp((snap.rocketFuel / this.playerStats.rocketMax) * 100, 0, 100),
+      nextGoalLabel: this.getNextGoalLabel(),
+      nextGoalDistance: this.getNextGoalDistance(),
+      storyEvents: this.stats.storyEvents,
     };
     this.game.events.emit(GameEvents.HudUpdate, hud);
+  }
+
+  private getNextGoalLabel(): string {
+    return getNextMilestone(this.stats.distance, this.reachedMilestones)?.title || 'Signal final';
+  }
+
+  private getNextGoalDistance(): number {
+    const next = getNextMilestone(this.stats.distance, this.reachedMilestones);
+    return next ? Math.max(0, next.distance - this.stats.distance) : 0;
   }
 
   private updateDebug(): void {
@@ -609,6 +730,7 @@ export class RunScene extends Phaser.Scene {
           `rocket: ${snap.rocketFuel.toFixed(1)} / ${this.playerStats.rocketMax}`,
           `bounce: ${this.playerStats.bouncePower.toFixed(0)}`,
           `space: ${snap.spaceExposure.toFixed(2)} / suit ${this.playerStats.hasSpaceSuit}`,
+          `story: ${this.stats.storyEvents}/${RUN_MILESTONES.length}`,
           `platforms: ${this.chunk.platforms.length}`,
           `entities: ${this.chunk.entities.length}`,
           `combo: ${this.stats.combo}`,
@@ -718,6 +840,8 @@ export class RunScene extends Phaser.Scene {
       hits: 0,
       combo: 0,
       bestCombo: 0,
+      storyEvents: 0,
+      bestMilestone: '',
     };
   }
 

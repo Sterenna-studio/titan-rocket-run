@@ -111,6 +111,8 @@ export interface RunStats {
   hits: number;
   combo: number;
   bestCombo: number;
+  storyEvents: number;
+  bestMilestone: string;
 }
 
 export interface RunSummary extends RunStats {
@@ -128,6 +130,9 @@ export interface HudState {
   jumpsLeft: number;
   maxJumps: number;
   rocketPercent: number;
+  nextGoalLabel: string;
+  nextGoalDistance: number;
+  storyEvents: number;
 }
 
 export interface UiMessage {
@@ -150,4 +155,16 @@ export interface TitanAnimationManifest {
   character: string;
   game: string;
   animations: Record<string, TitanAnimationData>;
+}
+
+export interface RunMilestone {
+  id: string;
+  distance: number;
+  title: string;
+  body: string;
+  rewardBones: number;
+  rocketPercent: number;
+  speedBoost: number;
+  color: number;
+  badge?: string;
 }

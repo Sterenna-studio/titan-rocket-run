@@ -52,6 +52,11 @@ export class SoundSystem {
     this.tone({ freq: 880, slideTo: 1180, duration: 0.08, type: 'triangle', gain: 0.12 });
   }
 
+  milestone(): void {
+    this.tone({ freq: 520, slideTo: 980, duration: 0.16, type: 'triangle', gain: 0.13 });
+    window.setTimeout(() => this.tone({ freq: 780, slideTo: 1320, duration: 0.14, type: 'square', gain: 0.08 }), 95);
+  }
+
   boost(): void {
     this.tone({ freq: 260, slideTo: 420, duration: 0.09, type: 'sawtooth', gain: 0.07 });
   }
