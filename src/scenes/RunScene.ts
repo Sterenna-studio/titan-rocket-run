@@ -10,6 +10,7 @@ import { TitanController } from '../player/TitanController';
 import { CollectibleSystem } from '../systems/CollectibleSystem';
 import { MineSystem } from '../systems/MineSystem';
 import { saveSystem } from '../systems/SaveSystem';
+import { soundSystem } from '../systems/SoundSystem';
 import { upgradeSystem } from '../systems/UpgradeSystem';
 import type { HudState, InputState, RunStats, RunSummary, VirtualInput } from '../types/game';
 import { ChunkManager } from '../world/ChunkManager';
@@ -42,6 +43,7 @@ export class RunScene extends Phaser.Scene {
   private stats!: RunStats;
   private playerStats = upgradeSystem.getPlayerStats();
   private jumpBuffer = 0;
+  private boostSoundCooldown = 0;
   private debugVisible = false;
   private hitboxesVisible = false;
   private ended = false;
@@ -110,12 +112,15 @@ export class RunScene extends Phaser.Scene {
 
     const dt = Math.min(0.033, deltaMs / 1000);
     this.jumpBuffer = Math.max(0, this.jumpBuffer - dt);
+    this.boostSoundCooldown = Math.max(0, this.boostSoundCooldown - dt);
     this.chunk.ensure(this.cameras.main.scrollX, GAME_WIDTH);
 
+    const beforeJump = this.titan.getSnapshot();
     if (this.jumpBuffer > 0 && this.titan.tryJump()) {
       this.jumpBuffer = 0;
       this.stats.jumps += 1;
       const snap = this.titan.getSnapshot();
+      soundSystem.jump(!beforeJump.grounded && beforeJump.coyote <= 0);
       this.spawnBurst(snap.x, snap.y + snap.h * 0.68, 14, 0x62ff52);
     }
 
@@ -123,9 +128,14 @@ export class RunScene extends Phaser.Scene {
     const snap = this.titan.getSnapshot();
     if (result.landed) {
       this.stats.landed += 1;
+      soundSystem.land();
       this.spawnDust(snap.x, snap.y + snap.h);
     }
     if (result.boostPad) {
+      if (this.boostSoundCooldown <= 0) {
+        soundSystem.boost();
+        this.boostSoundCooldown = 0.22;
+      }
       this.spawnBurst(snap.x, snap.y + snap.h, 9, 0x62ff52);
     }
     if (result.rocketUsed) {
@@ -237,6 +247,7 @@ export class RunScene extends Phaser.Scene {
       this.stats.bonusBones += bone.value;
       this.stats.combo += 1;
       this.stats.bestCombo = Math.max(this.stats.bestCombo, this.stats.combo);
+      soundSystem.collect();
       this.spawnBurst(bone.x, bone.y, 14, 0x62ff52);
     }
 
@@ -247,6 +258,7 @@ export class RunScene extends Phaser.Scene {
       this.chunk.markEntityHit(mine.id);
       this.stats.hits += 1;
       this.stats.combo = 0;
+      soundSystem.mine();
       this.spawnBurst(mine.x, mine.y, 18, 0xff5b46);
       this.cameras.main.shake(160, 0.006);
       this.flash.setAlpha(0.24);
@@ -428,6 +440,7 @@ export class RunScene extends Phaser.Scene {
 
     this.ended = true;
     this.titan.knockOut();
+    soundSystem.finish();
     const summary: RunSummary = saveSystem.recordRun(this.stats, this.seed);
     this.game.events.emit(GameEvents.SaveChanged, saveSystem.getSnapshot());
     this.game.events.emit(GameEvents.RunFinished, summary);

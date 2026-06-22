@@ -19,6 +19,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build static bundle
+        run: npm run build
+
       - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
@@ -33,13 +45,8 @@ jobs:
       - name: Deploy via rsync
         run: |
           rsync -avz --delete \
-            --exclude='/.git/' \
-            --exclude='/.github/' \
-            --exclude='/README.md' \
-            --exclude='/LICENSE' \
-            --exclude='/docs/' \
             -e "ssh -i ~/.ssh/ovh_key" \
-            ./ "${{ secrets.OVH_USER }}@${{ secrets.OVH_HOST }}:~/nitro/titan-rocket-run/"
+            dist/ "${{ secrets.OVH_USER }}@${{ secrets.OVH_HOST }}:~/nitro/titan-rocket-run/"
 
       - name: Cleanup
         if: always()

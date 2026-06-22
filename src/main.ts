@@ -3,6 +3,7 @@ import './style.css';
 import { createGameConfig } from './game/config';
 import { GameEvents } from './game/constants';
 import { saveSystem } from './systems/SaveSystem';
+import { soundSystem } from './systems/SoundSystem';
 import { upgradeSystem } from './systems/UpgradeSystem';
 import type { HudState, RunSummary, SaveData, UiMessage, UpgradeId, VirtualInput } from './types/game';
 
@@ -59,6 +60,10 @@ ui.resetSave.addEventListener('click', () => {
 });
 ui.muteBtn.addEventListener('click', () => {
   soundMuted = !soundMuted;
+  soundSystem.setMuted(soundMuted);
+  if (!soundMuted) {
+    soundSystem.unlock();
+  }
   game.sound.mute = soundMuted;
   ui.muteBtn.textContent = soundMuted ? 'Muet' : 'Son';
   ui.muteBtn.setAttribute('aria-pressed', String(soundMuted));
@@ -73,6 +78,7 @@ game.events.on(GameEvents.Message, renderMessage);
 game.events.on(GameEvents.SaveChanged, (save: SaveData) => renderSave(save));
 
 bindTouchControls();
+bindAudioUnlock();
 
 function byId(id: string): HTMLElement {
   const element = document.getElementById(id);
@@ -83,6 +89,7 @@ function byId(id: string): HTMLElement {
 }
 
 function requestStart(): void {
+  soundSystem.unlock();
   game.events.emit(GameEvents.StartRun);
   ui.playBtn.blur();
   ui.retryBtn.blur();
@@ -173,9 +180,16 @@ function buyUpgrade(id: UpgradeId): void {
   }
 
   const save = saveSystem.getSnapshot();
+  soundSystem.upgrade();
   renderSave(save);
   game.events.emit(GameEvents.SaveChanged, save);
   renderMessage({ title: 'Upgrade achete', body: 'Les stats de Titan seront appliquees a la prochaine run.' });
+}
+
+function bindAudioUnlock(): void {
+  const unlock = () => soundSystem.unlock();
+  window.addEventListener('pointerdown', unlock, { once: true, passive: true });
+  window.addEventListener('keydown', unlock, { once: true });
 }
 
 function bindTouchControls(): void {

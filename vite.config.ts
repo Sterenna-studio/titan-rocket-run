@@ -21,6 +21,7 @@ function copyTitanAssets(): Plugin {
 }
 
 export default defineConfig({
+  base: './',
   plugins: [copyTitanAssets()],
   build: {
     rollupOptions: {

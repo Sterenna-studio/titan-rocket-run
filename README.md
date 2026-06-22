@@ -27,6 +27,10 @@ npm run preview
 
 En dev, ouvrir l'URL affichée par Vite. Le jeu principal est sur `index.html` et l'outil de validation des sprites reste disponible sur `asset-browser.html`.
 
+## Déploiement
+
+Le workflow OVH installe les dépendances avec `npm ci`, lance `npm run build`, puis publie uniquement `dist/`. Vite utilise des chemins relatifs (`base: './'`) pour que le bundle fonctionne aussi quand le jeu est servi depuis un sous-dossier comme `/titan-rocket-run/`.
+
 ## Gameplay
 
 - `A` / `D` ou flèches gauche/droite : déplacement et maintien de l'élan.
