@@ -1,6 +1,6 @@
 import type { UpgradeDefinition, UpgradeId } from '../types/game';
 
-export const GAME_WIDTH = 1280;
+export const GAME_WIDTH = 2560;
 export const GAME_HEIGHT = 1440;
 export const MANIFEST_URL = 'assets/titan_manifest.json';
 export const SAVE_KEY = 'titanRocketRunSave';
