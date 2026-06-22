@@ -4,24 +4,25 @@ Prototype HTML5 Canvas autour de Titan.
 
 ## Concept
 
-Titan doit courir, prendre de la vitesse, sauter depuis une rampe, utiliser éventuellement une rocket en plein vol, puis aller le plus loin possible.
+Titan devient un **runner-platformer nerveux**, plus proche d'un petit Sonic-like que d'un simple jeu de saut depuis une rampe.
 
 Boucle de jeu :
 
 ```text
-Run → Jump → Fly/Fall → Distance → Rewards → Upgrades → Retry
+Run → Platform jumps → Rocket saves → Bones / mines → Distance → Rewards → Upgrades → Retry
 ```
 
 ## Gameplay
 
-- Alterner `A` / `D` pour charger la course.
-- Appuyer sur `Espace` au bon moment sur la rampe.
-- Maintenir `Shift` en vol pour utiliser la rocket.
-- En vol, ramasser les os flottants (plus ils sont haut, plus ils rapportent) et éviter les mines rouges qui freinent Titan.
-- La distance et les os ramassés donnent des récompenses.
-- Les os servent à acheter des améliorations.
-- Un écran titre lance la partie, et un panel de résultats (distance, vitesse max, qualité de saut, os, badges) s'affiche après chaque run.
+- Maintenir `A` / `D` pour se déplacer et conserver l'élan.
+- Appuyer sur `Espace` pour sauter ; Titan possède un double saut de base.
+- Maintenir `Shift` pour déclencher la rocket, surtout utile en l'air pour sauver un gap.
+- Sauter de plateforme en plateforme le plus loin possible.
+- Ramasser les os pour gagner des bonus, monter le combo et récupérer un peu de rocket.
+- Les mines sont moins punitives qu'avant : elles ralentissent Titan, cassent le combo et donnent un petit knockback, mais elles ne terminent pas la run instantanément.
+- La run se termine surtout quand Titan tombe dans le vide.
 - Le bouton 🔊 en haut à droite coupe / réactive le son.
+- Des contrôles tactiles sont disponibles sur mobile / écran tactile.
 
 ## Asset Browser
 
@@ -42,11 +43,11 @@ Elle permet de :
 
 ## Upgrades
 
-- Chaussures : meilleure accélération.
-- Rampe : meilleure fenêtre de timing et meilleur angle.
-- Rocket : plus de boost en l'air.
-- Cape aéro : moins de perte de vitesse.
-- Ligne de départ : vitesse initiale augmentée.
+- Chaussures : meilleure accélération et meilleure vitesse au sol.
+- Bottes de saut : sauts plus hauts et air-jumps supplémentaires à haut niveau.
+- Rocket : boost horizontal plus long.
+- Cape aéro : meilleur contrôle en l'air et chute plus douce.
+- Élan de départ : vitesse initiale augmentée.
 
 ## Lancer le proto
 
@@ -99,9 +100,10 @@ Tu peux aussi ouvrir `index.html` directement, mais le serveur local est plus pr
 
 ## Roadmap rapide
 
-- ✅ Écran titre.
-- ✅ Panel de résultats après chaque run (stats + badges).
-- ✅ Obstacles / pickups pendant le vol.
-- 🔁 Équilibrage des coûts d'upgrades (premier passage fait, à affiner en jouant).
-- ✅ Sons (WebAudio synthétisé) et effets visuels (screen shake, flashs).
-- Préparer une version Phaser ou Godot si besoin.
+- ✅ Pivot gameplay vers runner-platformer.
+- ✅ Plateformes générées procéduralement.
+- ✅ Double saut + air-jumps via upgrade.
+- ✅ Mines moins punitives.
+- ✅ Contrôles tactiles.
+- ✅ Écran titre + panel de résultats.
+- 🔁 Prochaines passes : level design plus lisible, animations d'atterrissage, pads spéciaux, ennemis et meilleure sensation Sonic-like.

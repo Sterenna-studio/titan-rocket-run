@@ -11,7 +11,7 @@
     <header class="topbar">
       <div>
         <h1>Titan Rocket Run</h1>
-        <p>Spam pour accélérer, saute sur la rampe, active la rocket en plein vol.</p>
+        <p>Platformer runner : prends de l'élan, enchaîne les plateformes, double-saute et booste à la rocket.</p>
       </div>
       <div class="records">
         <a class="assetLink" href="asset-browser.html">Assets</a>
@@ -25,9 +25,9 @@
       <aside class="panel">
         <h2>Contrôles</h2>
         <div class="controls">
-          <kbd>A</kbd><kbd>D</kbd><span>alterner pour courir</span>
-          <kbd>Espace</kbd><span>sauter sur la rampe</span>
-          <kbd>Shift</kbd><span>rocket en l'air</span>
+          <kbd>A</kbd><kbd>D</kbd><span>se déplacer / garder l'élan</span>
+          <kbd>Espace</kbd><span>sauter / double-sauter</span>
+          <kbd>Shift</kbd><span>boost rocket en l'air</span>
           <kbd>R</kbd><span>relancer</span>
         </div>
 
@@ -41,19 +41,31 @@
         <canvas id="game" width="1280" height="720"></canvas>
         <div class="hud">
           <div><label>Vitesse</label><meter id="speedMeter" min="0" max="100" value="0"></meter><span id="speedText">0%</span></div>
-          <div><label>Timing</label><meter id="timingMeter" min="0" max="100" value="0"></meter><span id="timingText">—</span></div>
+          <div><label>Sauts</label><meter id="timingMeter" min="0" max="100" value="0"></meter><span id="timingText">—</span></div>
           <div><label>Rocket</label><meter id="rocketMeter" min="0" max="100" value="0"></meter><span id="rocketText">0%</span></div>
         </div>
-        <div id="message" class="message"><b>Prêt ?</b><br>Alterne A / D pour charger la vitesse. Appuie sur Espace dans la zone verte.</div>
+        <div id="message" class="message"><b>Prêt ?</b><br>Garde ton élan, saute de plateforme en plateforme et utilise la rocket pour sauver les gaps.</div>
+
+        <div class="touchControls" aria-label="Contrôles tactiles">
+          <div class="touchRun" aria-label="Course">
+            <button type="button" class="touchBtn" data-key="a">A</button>
+            <button type="button" class="touchBtn" data-key="d">D</button>
+          </div>
+          <div class="touchActions" aria-label="Actions">
+            <button type="button" class="touchBtn touchJump" data-key="space">Saut</button>
+            <button type="button" class="touchBtn touchRocket" data-key="shift">Rocket</button>
+            <button type="button" class="touchBtn touchRetry" data-key="r">R</button>
+          </div>
+        </div>
 
         <div id="overlay" class="overlay">
           <div id="titleScreen" class="card">
             <h2 class="bigTitle">Titan Rocket Run</h2>
-            <p class="lead">Charge ta vitesse, saute sur la rampe, allume la rocket et ramasse les os en plein vol — va le plus loin possible.</p>
+            <p class="lead">Un runner-platformer nerveux : garde la vitesse, enchaîne les sauts, ramasse les os et évite les mines sans perdre ton flow.</p>
             <div class="ctrlGrid">
-              <span><kbd>A</kbd><kbd>D</kbd> alterner pour courir</span>
-              <span><kbd>Espace</kbd> sauter sur la rampe</span>
-              <span><kbd>Shift</kbd> rocket en l'air</span>
+              <span><kbd>A</kbd><kbd>D</kbd> se déplacer / garder l'élan</span>
+              <span><kbd>Espace</kbd> sauter / double-sauter</span>
+              <span><kbd>Shift</kbd> boost rocket</span>
               <span><kbd>R</kbd> relancer</span>
             </div>
             <button id="playBtn" class="cta">Jouer</button>
@@ -64,9 +76,9 @@
             <div class="stats">
               <div class="stat"><b id="resDist">0 m</b><label>Distance</label></div>
               <div class="stat"><b id="resSpeed">0</b><label>Vitesse max</label></div>
-              <div class="stat"><b id="resJump">0%</b><label>Qualité saut</label></div>
+              <div class="stat"><b id="resJump">0</b><label>Sauts</label></div>
               <div class="stat"><b id="resBones">0</b><label>Os ramassés</label></div>
-              <div class="stat"><b id="resHits">0</b><label>Obstacles touchés</label></div>
+              <div class="stat"><b id="resHits">0</b><label>Mines touchées</label></div>
               <div class="stat reward"><b id="resReward">+0</b><label>Os gagnés</label></div>
             </div>
             <p id="resBadge" class="badge hidden"></p>
@@ -79,5 +91,35 @@
     </section>
   </main>
   <script src="src/game.js"></script>
+  <script>
+    (() => {
+      const keyMap = { space: " ", shift: "Shift" };
+      const emitKey = (rawKey, type) => {
+        const key = keyMap[rawKey] || rawKey;
+        window.dispatchEvent(new KeyboardEvent(type, { key, bubbles: true, cancelable: true }));
+      };
+
+      document.querySelectorAll(".touchBtn").forEach((button) => {
+        const key = button.dataset.key;
+        const release = (event) => {
+          event.preventDefault();
+          emitKey(key, "keyup");
+          button.classList.remove("isPressed");
+        };
+
+        button.addEventListener("pointerdown", (event) => {
+          event.preventDefault();
+          button.setPointerCapture?.(event.pointerId);
+          button.classList.add("isPressed");
+          emitKey(key, "keydown");
+        });
+        button.addEventListener("pointerup", release);
+        button.addEventListener("pointercancel", release);
+        button.addEventListener("pointerleave", (event) => {
+          if (button.classList.contains("isPressed")) release(event);
+        });
+      });
+    })();
+  </script>
 </body>
 </html>
