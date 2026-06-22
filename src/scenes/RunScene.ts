@@ -27,6 +27,12 @@ interface Particle {
   max: number;
 }
 
+interface ParallaxLayer {
+  tile: Phaser.GameObjects.TileSprite;
+  scrollRatio: number;
+  drift: number;
+}
+
 type KeyMap = Record<'a' | 'q' | 'd' | 'left' | 'right' | 'space' | 'shift', Phaser.Input.Keyboard.Key>;
 
 export class RunScene extends Phaser.Scene {
@@ -41,6 +47,7 @@ export class RunScene extends Phaser.Scene {
   private debugText!: Phaser.GameObjects.Text;
   private hudText!: Phaser.GameObjects.Text;
   private flash!: Phaser.GameObjects.Rectangle;
+  private backgroundLayers: ParallaxLayer[] = [];
   private entitySprites = new Map<number, Phaser.GameObjects.Image>();
   private particles: Particle[] = [];
   private keys!: KeyMap;
@@ -128,6 +135,7 @@ export class RunScene extends Phaser.Scene {
     if (this.launchCharging) {
       this.updateLaunch(dt, input);
       this.updateCamera(dt);
+      this.updateBackground();
       this.updateParticles(dt);
       this.drawPlatforms();
       this.updateHudText();
@@ -170,6 +178,7 @@ export class RunScene extends Phaser.Scene {
     this.handleEntities();
     this.updateStats();
     this.updateCamera(dt);
+    this.updateBackground();
     this.updateParticles(dt);
     this.syncEntitySprites(this.time.now / 1000);
     this.drawPlatforms();
@@ -341,26 +350,158 @@ export class RunScene extends Phaser.Scene {
   }
 
   private drawBackground(): void {
-    this.add.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x07150d).setOrigin(0).setScrollFactor(0).setDepth(-20);
-    const bg = this.add.graphics().setScrollFactor(0).setDepth(-19);
-    bg.fillStyle(0x02040b, 1);
-    bg.fillRect(0, 0, GAME_WIDTH, SPACE_Y + 20);
-    bg.fillStyle(0x061a28, 1);
-    bg.fillRect(0, SPACE_Y + 20, GAME_WIDTH, 170);
-    bg.fillStyle(0x0b2112, 1);
-    bg.fillRect(0, 300, GAME_WIDTH, 420);
-    bg.fillStyle(0xe9fff0, 0.8);
-    for (let i = 0; i < 42; i += 1) {
-      const x = (i * 137) % GAME_WIDTH;
-      const y = 12 + ((i * 53) % Math.max(1, SPACE_Y - 8));
-      bg.fillCircle(x, y, i % 5 === 0 ? 2 : 1);
+    this.createBackgroundTextures();
+    this.add.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x07150d).setOrigin(0).setScrollFactor(0).setDepth(-30);
+    this.add.tileSprite(0, 0, GAME_WIDTH, GAME_HEIGHT, 'bg-gradient').setOrigin(0).setScrollFactor(0).setDepth(-29);
+
+    this.backgroundLayers = [
+      { tile: this.add.tileSprite(0, 0, GAME_WIDTH, 132, 'bg-stars').setOrigin(0).setScrollFactor(0).setDepth(-28), scrollRatio: 0.06, drift: 4 },
+      { tile: this.add.tileSprite(0, SPACE_Y + 18, GAME_WIDTH, 190, 'bg-clouds').setOrigin(0).setScrollFactor(0).setDepth(-27), scrollRatio: 0.12, drift: 9 },
+      { tile: this.add.tileSprite(0, 140, GAME_WIDTH, 330, 'bg-far-structures').setOrigin(0).setScrollFactor(0).setDepth(-26), scrollRatio: 0.22, drift: 0 },
+      { tile: this.add.tileSprite(0, 250, GAME_WIDTH, 300, 'bg-near-structures').setOrigin(0).setScrollFactor(0).setDepth(-25), scrollRatio: 0.38, drift: 0 },
+      { tile: this.add.tileSprite(0, 455, GAME_WIDTH, 210, 'bg-ground-haze').setOrigin(0).setScrollFactor(0).setDepth(-24), scrollRatio: 0.62, drift: 0 },
+    ];
+    this.updateBackground();
+  }
+
+  private updateBackground(): void {
+    const scrollX = this.cameras.main.scrollX;
+    const driftTime = this.time.now / 1000;
+
+    for (const layer of this.backgroundLayers) {
+      layer.tile.tilePositionX = scrollX * layer.scrollRatio + driftTime * layer.drift;
     }
-    bg.fillStyle(COLORS.green, 0.045);
-    bg.lineStyle(2, COLORS.green, 0.075);
+  }
+
+  private createBackgroundTextures(): void {
+    this.createGradientTexture();
+    this.createStarsTexture();
+    this.createCloudsTexture();
+    this.createFarStructuresTexture();
+    this.createNearStructuresTexture();
+    this.createGroundHazeTexture();
+  }
+
+  private createGradientTexture(): void {
+    if (this.textures.exists('bg-gradient')) {
+      return;
+    }
+
+    const graphics = this.add.graphics().setVisible(false);
+    graphics.fillStyle(0x02040b, 1);
+    graphics.fillRect(0, 0, GAME_WIDTH, SPACE_Y + 20);
+    graphics.fillStyle(0x061a28, 1);
+    graphics.fillRect(0, SPACE_Y + 20, GAME_WIDTH, 168);
+    graphics.fillStyle(0x0b2112, 1);
+    graphics.fillRect(0, 288, GAME_WIDTH, GAME_HEIGHT - 288);
+    graphics.fillStyle(0x0f2110, 0.72);
+    graphics.fillRect(0, 430, GAME_WIDTH, GAME_HEIGHT - 430);
+    graphics.generateTexture('bg-gradient', GAME_WIDTH, GAME_HEIGHT);
+    graphics.destroy();
+  }
+
+  private createStarsTexture(): void {
+    if (this.textures.exists('bg-stars')) {
+      return;
+    }
+
+    const graphics = this.add.graphics().setVisible(false);
+    for (let i = 0; i < 76; i += 1) {
+      const x = (i * 83) % GAME_WIDTH;
+      const y = 9 + ((i * 47) % 104);
+      const alpha = i % 4 === 0 ? 0.86 : 0.48;
+      graphics.fillStyle(0xe9fff0, alpha);
+      graphics.fillCircle(x, y, i % 9 === 0 ? 2 : 1);
+    }
+    graphics.lineStyle(1, 0x65d9ff, 0.12);
+    for (let x = 0; x < GAME_WIDTH; x += 220) {
+      graphics.lineBetween(x + 24, 92, x + 128, 38);
+    }
+    graphics.generateTexture('bg-stars', GAME_WIDTH, 132);
+    graphics.destroy();
+  }
+
+  private createCloudsTexture(): void {
+    if (this.textures.exists('bg-clouds')) {
+      return;
+    }
+
+    const graphics = this.add.graphics().setVisible(false);
+    const cloudRows = [
+      { y: 42, color: 0xc8fbff, alpha: 0.13, step: 260 },
+      { y: 96, color: 0x8cfffb, alpha: 0.1, step: 340 },
+      { y: 138, color: 0xf0fff4, alpha: 0.07, step: 300 },
+    ];
+
+    for (const row of cloudRows) {
+      graphics.fillStyle(row.color, row.alpha);
+      for (let x = -80; x < GAME_WIDTH + 180; x += row.step) {
+        graphics.fillEllipse(x + 64, row.y, 176, 24);
+        graphics.fillEllipse(x + 150, row.y + 18, 220, 30);
+      }
+    }
+
+    graphics.generateTexture('bg-clouds', GAME_WIDTH, 190);
+    graphics.destroy();
+  }
+
+  private createFarStructuresTexture(): void {
+    if (this.textures.exists('bg-far-structures')) {
+      return;
+    }
+
+    const graphics = this.add.graphics().setVisible(false);
+    graphics.fillStyle(COLORS.green, 0.035);
+    for (let x = -120; x < GAME_WIDTH + 260; x += 280) {
+      graphics.fillCircle(x + 140, 38, 86);
+      graphics.fillRoundedRect(x + 76, 96, 128, 260, 22);
+    }
+    graphics.lineStyle(2, COLORS.green, 0.075);
     for (let x = -60; x < GAME_WIDTH + 260; x += 300) {
-      bg.fillCircle(x + 110, 135, 92);
-      bg.strokeRect(x + 35, 82, 190, 320);
+      graphics.strokeRoundedRect(x + 35, 82, 190, 320, 18);
     }
+    graphics.generateTexture('bg-far-structures', GAME_WIDTH, 330);
+    graphics.destroy();
+  }
+
+  private createNearStructuresTexture(): void {
+    if (this.textures.exists('bg-near-structures')) {
+      return;
+    }
+
+    const graphics = this.add.graphics().setVisible(false);
+    graphics.fillStyle(0x0a2a17, 0.42);
+    for (let x = -100; x < GAME_WIDTH + 180; x += 180) {
+      const height = 120 + ((x + 700) % 5) * 18;
+      graphics.fillRoundedRect(x, 300 - height, 88, height, 18);
+      graphics.fillCircle(x + 44, 300 - height + 8, 54);
+    }
+    graphics.lineStyle(2, 0x65d9ff, 0.12);
+    for (let x = 0; x < GAME_WIDTH + 120; x += 240) {
+      graphics.lineBetween(x, 210, x + 80, 142);
+      graphics.lineBetween(x + 80, 142, x + 180, 202);
+    }
+    graphics.generateTexture('bg-near-structures', GAME_WIDTH, 300);
+    graphics.destroy();
+  }
+
+  private createGroundHazeTexture(): void {
+    if (this.textures.exists('bg-ground-haze')) {
+      return;
+    }
+
+    const graphics = this.add.graphics().setVisible(false);
+    graphics.fillStyle(0x62ff52, 0.055);
+    for (let x = -80; x < GAME_WIDTH + 120; x += 170) {
+      graphics.fillEllipse(x + 90, 80, 220, 38);
+      graphics.fillRect(x + 26, 88, 130, 122);
+    }
+    graphics.lineStyle(2, 0xffd36a, 0.08);
+    for (let x = -40; x < GAME_WIDTH + 160; x += 210) {
+      graphics.strokeRoundedRect(x, 52, 140, 170, 16);
+    }
+    graphics.generateTexture('bg-ground-haze', GAME_WIDTH, 210);
+    graphics.destroy();
   }
 
   private drawPlatforms(): void {
