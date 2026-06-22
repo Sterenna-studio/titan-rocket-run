@@ -135,6 +135,7 @@ export class TitanController {
       boostPad,
       rocketUsed,
       bounceUsed,
+      impactSpeed: collision.landed ? impactVy : 0,
     };
   }
 
@@ -211,6 +212,26 @@ export class TitanController {
 
   knockOut(): void {
     this.play('knockout', true);
+  }
+
+  crashIntoGround(groundY: number): number {
+    const bottom = this.state.y + this.state.h;
+    if (this.state.vy <= 0 || bottom < groundY) {
+      return 0;
+    }
+
+    const impactSpeed = this.state.vy;
+    this.state.y = groundY - this.state.h;
+    this.state.vy = 0;
+    this.state.vx *= 0.16;
+    this.state.grounded = true;
+    this.state.coyote = 0;
+    this.state.jumpsLeft = 0;
+    this.state.hurt = 0.5;
+    this.rotation = 0.18 * this.facing;
+    this.play('hurt', true);
+    this.syncSprite();
+    return impactSpeed;
   }
 
   isDead(): boolean {

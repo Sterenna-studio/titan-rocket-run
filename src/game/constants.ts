@@ -1,21 +1,24 @@
 import type { UpgradeDefinition, UpgradeId } from '../types/game';
 
 export const GAME_WIDTH = 1280;
-export const GAME_HEIGHT = 720;
+export const GAME_HEIGHT = 1440;
 export const MANIFEST_URL = 'assets/titan_manifest.json';
 export const SAVE_KEY = 'titanRocketRunSave';
 
-export const START_X = 120;
-export const GROUND_Y = 575;
+export const START_X = 145;
+export const GROUND_Y = 1220;
+export const CRASH_GROUND_Y = GAME_HEIGHT - 84;
 export const WORLD_SCALE = 0.09;
-export const DEATH_Y = 940;
+export const DEATH_Y = 1760;
 export const GRAVITY = 1900;
 export const WORLD_AHEAD = 2200;
 export const WORLD_BEHIND = 650;
-export const SKY_Y = 230;
-export const SPACE_Y = 96;
+export const SKY_Y = 590;
+export const SPACE_Y = 170;
 export const SPACE_LOST_SECONDS = 1.1;
-export const LAUNCH_CHARGE_SECONDS = 1.55;
+export const LAUNCH_CHARGE_SECONDS = 1.75;
+export const LAUNCH_PERFECT_MIN = 0.72;
+export const LAUNCH_PERFECT_MAX = 0.9;
 export const LAUNCH_MIN_VX = 420;
 export const LAUNCH_MAX_VX = 3600;
 export const LAUNCH_MIN_VY = 560;

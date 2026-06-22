@@ -22,9 +22,9 @@ export class PlatformGenerator {
     const width = this.lerp(difficulty.minWidth, difficulty.maxWidth, this.random());
     const noise = this.noise2D(id * 0.23, 0.4);
     const y = clamp(
-      previous.y + noise * difficulty.verticalRange + (this.random() - 0.5) * 60,
-      300,
-      600,
+      previous.y + noise * difficulty.verticalRange + (this.random() - 0.5) * 125,
+      430,
+      GROUND_Y - 56,
     );
 
     return {
@@ -47,7 +47,7 @@ export class PlatformGenerator {
       entities.push({
         type: 'bone',
         x: platform.x + 55 + this.random() * Math.max(60, platform.w - 110),
-        y: platform.y - (floating ? 135 + this.random() * 135 : 58),
+        y: platform.y - (floating ? 170 + this.random() * 190 : 66),
         r: 19,
         value: floating ? 5 : 3,
         bob: this.random() * Math.PI * 2,

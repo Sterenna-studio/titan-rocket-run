@@ -44,8 +44,18 @@ export class SoundSystem {
     });
   }
 
-  land(): void {
-    this.tone({ freq: 130, duration: 0.05, type: 'sine', gain: 0.08 });
+  land(strength = 0): void {
+    const crash = Math.max(0, Math.min(1, strength));
+    this.tone({
+      freq: 132 - crash * 52,
+      slideTo: 96 - crash * 34,
+      duration: 0.05 + crash * 0.14,
+      type: crash > 0.45 ? 'sawtooth' : 'sine',
+      gain: 0.08 + crash * 0.08,
+    });
+    if (crash > 0.5) {
+      window.setTimeout(() => this.tone({ freq: 58, duration: 0.12, type: 'triangle', gain: 0.08 }), 38);
+    }
   }
 
   collect(): void {

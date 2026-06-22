@@ -1,11 +1,15 @@
 import Phaser from 'phaser';
 import {
   COLORS,
+  CRASH_GROUND_Y,
   GAME_HEIGHT,
   GAME_WIDTH,
   GameEvents,
   GROUND_Y,
   LAUNCH_CHARGE_SECONDS,
+  LAUNCH_PERFECT_MAX,
+  LAUNCH_PERFECT_MIN,
+  SKY_Y,
   SPACE_Y,
   START_X,
   WORLD_SCALE,
@@ -18,7 +22,7 @@ import { RUN_MILESTONES, getNextMilestone } from '../systems/RunMilestones';
 import { saveSystem } from '../systems/SaveSystem';
 import { soundSystem } from '../systems/SoundSystem';
 import { upgradeSystem } from '../systems/UpgradeSystem';
-import type { HudState, InputState, RunMilestone, RunStats, RunSummary, VirtualInput } from '../types/game';
+import type { HudState, InputState, PlayerSnapshot, RunMilestone, RunStats, RunSummary, VirtualInput } from '../types/game';
 import { ChunkManager } from '../world/ChunkManager';
 
 interface Particle {
@@ -35,6 +39,25 @@ interface ParallaxLayer {
   drift: number;
 }
 
+interface ImpactMark {
+  x: number;
+  y: number;
+  radius: number;
+  power: number;
+  life: number;
+  max: number;
+  seed: number;
+}
+
+interface LaunchGrade {
+  title: string;
+  body: string;
+  color: number;
+  chargeBonus: number;
+  speedBonus: number;
+  rocketPercent: number;
+}
+
 type KeyMap = Record<'a' | 'q' | 'd' | 'left' | 'right' | 'space' | 'shift', Phaser.Input.Keyboard.Key>;
 
 export class RunScene extends Phaser.Scene {
@@ -43,6 +66,7 @@ export class RunScene extends Phaser.Scene {
   private titan!: TitanController;
   private collect = new CollectibleSystem();
   private mines = new MineSystem();
+  private groundGraphics!: Phaser.GameObjects.Graphics;
   private platformGraphics!: Phaser.GameObjects.Graphics;
   private launchGraphics!: Phaser.GameObjects.Graphics;
   private hitboxGraphics!: Phaser.GameObjects.Graphics;
@@ -53,6 +77,7 @@ export class RunScene extends Phaser.Scene {
   private backgroundLayers: ParallaxLayer[] = [];
   private entitySprites = new Map<number, Phaser.GameObjects.Image>();
   private particles: Particle[] = [];
+  private impactMarks: ImpactMark[] = [];
   private keys!: KeyMap;
   private virtualDown = new Set<VirtualInput['key']>();
   private stats!: RunStats;
@@ -63,6 +88,8 @@ export class RunScene extends Phaser.Scene {
   private launchCharging = true;
   private launchCharge = 0;
   private launchDirection = 1;
+  private launchSparkTimer = 0;
+  private lastCrashMessageAt = 0;
   private debugVisible = false;
   private hitboxesVisible = false;
   private ended = false;
@@ -81,12 +108,20 @@ export class RunScene extends Phaser.Scene {
     this.reachedMilestones.clear();
     this.launchCharging = true;
     this.launchCharge = 0;
+    this.launchSparkTimer = 0;
+    this.lastCrashMessageAt = 0;
+    this.ended = false;
+    this.particles = [];
+    this.impactMarks = [];
+    this.entitySprites.clear();
+    this.virtualDown.clear();
     this.chunk = new ChunkManager(this.seed);
 
     this.collect.createTextures(this);
     this.mines.createTextures(this);
     this.drawBackground();
 
+    this.groundGraphics = this.add.graphics().setDepth(5);
     this.platformGraphics = this.add.graphics().setDepth(8);
     this.launchGraphics = this.add.graphics().setDepth(65);
     this.hitboxGraphics = this.add.graphics().setDepth(80).setVisible(false);
@@ -144,11 +179,18 @@ export class RunScene extends Phaser.Scene {
   }
 
   update(_: number, deltaMs: number): void {
+    const dt = Math.min(0.033, deltaMs / 1000);
+
     if (this.ended) {
+      this.updateCamera(dt);
+      this.updateBackground();
+      this.updateParticles(dt);
+      this.updateImpactMarks(dt);
+      this.drawPlatforms();
+      this.updateDebug();
       return;
     }
 
-    const dt = Math.min(0.033, deltaMs / 1000);
     this.jumpBuffer = Math.max(0, this.jumpBuffer - dt);
     this.boostSoundCooldown = Math.max(0, this.boostSoundCooldown - dt);
     this.chunk.ensure(this.cameras.main.scrollX, GAME_WIDTH);
@@ -159,6 +201,7 @@ export class RunScene extends Phaser.Scene {
       this.updateCamera(dt);
       this.updateBackground();
       this.updateParticles(dt);
+      this.updateImpactMarks(dt);
       this.drawPlatforms();
       this.updateHudText();
       this.updateDebug();
@@ -176,12 +219,31 @@ export class RunScene extends Phaser.Scene {
     }
 
     const result = this.titan.update(dt, input, this.chunk.platforms);
-    const snap = this.titan.getSnapshot();
+    let snap = this.titan.getSnapshot();
     if (result.landed) {
       this.stats.landed += 1;
-      soundSystem.land();
-      this.spawnDust(snap.x, snap.y + snap.h);
+      this.handleLandingImpact(snap, result.impactSpeed);
     }
+
+    const groundImpact = this.titan.crashIntoGround(CRASH_GROUND_Y);
+    if (groundImpact > 0) {
+      snap = this.titan.getSnapshot();
+      this.stats.landed += 1;
+      this.stats.combo = 0;
+      this.handleLandingImpact(snap, groundImpact, true);
+      this.updateStats();
+      this.updateCamera(dt);
+      this.updateBackground();
+      this.updateParticles(dt);
+      this.updateImpactMarks(dt);
+      this.drawPlatforms();
+      this.updateHudText();
+      this.updateDebug();
+      this.emitHud();
+      this.finishRun('fall', 720);
+      return;
+    }
+
     if (result.bounceUsed) {
       soundSystem.bounce();
       this.spawnBurst(snap.x, snap.y + snap.h, 18, 0x8cfffb);
@@ -203,6 +265,7 @@ export class RunScene extends Phaser.Scene {
     this.updateCamera(dt);
     this.updateBackground();
     this.updateParticles(dt);
+    this.updateImpactMarks(dt);
     this.syncEntitySprites(this.time.now / 1000);
     this.drawPlatforms();
     this.updateHudText();
@@ -300,8 +363,15 @@ export class RunScene extends Phaser.Scene {
 
     if (input.jumpHeld) {
       this.launchCharge = Math.min(LAUNCH_CHARGE_SECONDS, this.launchCharge + dt);
+      this.launchSparkTimer -= dt;
+      if (this.launchSparkTimer <= 0) {
+        this.spawnLaunchSparks(clamp(this.launchCharge / LAUNCH_CHARGE_SECONDS, 0, 1));
+        this.launchSparkTimer = 0.08;
+      }
     } else if (this.launchCharge > 0) {
       this.fireChargedLaunch();
+    } else {
+      this.launchSparkTimer = 0;
     }
 
     this.drawLaunchMeter();
@@ -309,19 +379,68 @@ export class RunScene extends Phaser.Scene {
 
   private fireChargedLaunch(): void {
     const charge = clamp(this.launchCharge / LAUNCH_CHARGE_SECONDS, 0, 1);
+    const grade = this.getLaunchGrade(charge);
+    const effectiveCharge = clamp(charge + grade.chargeBonus, 0, 1);
     const snap = this.titan.getSnapshot();
 
     this.launchCharging = false;
     this.launchCharge = 0;
     this.launchGraphics.clear();
-    this.titan.launch(charge, this.launchDirection);
+    this.titan.launch(effectiveCharge, this.launchDirection);
+    if (grade.speedBonus > 0 || grade.rocketPercent > 0) {
+      this.titan.awardRunReward(grade.rocketPercent, grade.speedBonus);
+    }
     this.stats.jumps += 1;
-    soundSystem.launch(charge);
-    this.spawnBurst(snap.x, snap.y + snap.h, 12 + Math.round(charge * 18), charge > 0.82 ? 0x8cfffb : 0x62ff52);
+    soundSystem.launch(effectiveCharge);
+    this.spawnBurst(snap.x, snap.y + snap.h, 12 + Math.round(effectiveCharge * 22), grade.color);
     this.game.events.emit(GameEvents.Message, {
-      title: charge > 0.82 ? 'Super depart !' : 'Go !',
-      body: "Garde l'elan, double-saute, rebondis avec les bottes et surveille l'altitude.",
+      title: grade.title,
+      body: grade.body,
     });
+  }
+
+  private getLaunchGrade(charge: number): LaunchGrade {
+    if (charge >= LAUNCH_PERFECT_MIN && charge <= LAUNCH_PERFECT_MAX) {
+      return {
+        title: 'Depart parfait !',
+        body: 'Timing dans la zone verte : vitesse bonus, rocket chargee et trajectoire haute.',
+        color: 0x8cfffb,
+        chargeBonus: 0.12,
+        speedBonus: 210,
+        rocketPercent: 12,
+      };
+    }
+
+    if (charge > LAUNCH_PERFECT_MAX) {
+      return {
+        title: 'Depart brutal',
+        body: "Trop de pression : gros saut, mais garde le controle a l'atterrissage.",
+        color: 0xffd36a,
+        chargeBonus: 0.04,
+        speedBonus: 70,
+        rocketPercent: 4,
+      };
+    }
+
+    if (charge > 0.48) {
+      return {
+        title: 'Bon depart',
+        body: "Garde l'elan, double-saute, rebondis avec les bottes et surveille l'altitude.",
+        color: COLORS.green,
+        chargeBonus: 0.03,
+        speedBonus: 60,
+        rocketPercent: 0,
+      };
+    }
+
+    return {
+      title: 'Depart court',
+      body: 'Recharge plus longtemps pour viser la zone verte et gagner un vrai bonus.',
+      color: 0xff5b46,
+      chargeBonus: 0,
+      speedBonus: 0,
+      rocketPercent: 0,
+    };
   }
 
   private handleEntities(): void {
@@ -358,6 +477,7 @@ export class RunScene extends Phaser.Scene {
       this.spawnBurst(mine.x, mine.y, 18, 0xff5b46);
       this.cameras.main.shake(160, 0.006);
       this.flash.setAlpha(0.24);
+      this.flash.setFillStyle(0xff503c, 1);
       this.tweens.add({ targets: this.flash, alpha: 0, duration: 180 });
       this.game.events.emit(GameEvents.Message, {
         title: 'Mine encaissee',
@@ -439,11 +559,11 @@ export class RunScene extends Phaser.Scene {
     this.add.tileSprite(0, 0, GAME_WIDTH, GAME_HEIGHT, 'bg-gradient').setOrigin(0).setScrollFactor(0).setDepth(-29);
 
     this.backgroundLayers = [
-      { tile: this.add.tileSprite(0, 0, GAME_WIDTH, 132, 'bg-stars').setOrigin(0).setScrollFactor(0).setDepth(-28), scrollRatio: 0.06, drift: 4 },
-      { tile: this.add.tileSprite(0, SPACE_Y + 18, GAME_WIDTH, 190, 'bg-clouds').setOrigin(0).setScrollFactor(0).setDepth(-27), scrollRatio: 0.12, drift: 9 },
-      { tile: this.add.tileSprite(0, 140, GAME_WIDTH, 330, 'bg-far-structures').setOrigin(0).setScrollFactor(0).setDepth(-26), scrollRatio: 0.22, drift: 0 },
-      { tile: this.add.tileSprite(0, 250, GAME_WIDTH, 300, 'bg-near-structures').setOrigin(0).setScrollFactor(0).setDepth(-25), scrollRatio: 0.38, drift: 0 },
-      { tile: this.add.tileSprite(0, 455, GAME_WIDTH, 210, 'bg-ground-haze').setOrigin(0).setScrollFactor(0).setDepth(-24), scrollRatio: 0.62, drift: 0 },
+      { tile: this.add.tileSprite(0, 0, GAME_WIDTH, SPACE_Y + 32, 'bg-stars').setOrigin(0).setScrollFactor(0).setDepth(-28), scrollRatio: 0.06, drift: 4 },
+      { tile: this.add.tileSprite(0, SPACE_Y + 38, GAME_WIDTH, 340, 'bg-clouds').setOrigin(0).setScrollFactor(0).setDepth(-27), scrollRatio: 0.12, drift: 9 },
+      { tile: this.add.tileSprite(0, SKY_Y - 185, GAME_WIDTH, 560, 'bg-far-structures').setOrigin(0).setScrollFactor(0).setDepth(-26), scrollRatio: 0.22, drift: 0 },
+      { tile: this.add.tileSprite(0, GROUND_Y - 565, GAME_WIDTH, 520, 'bg-near-structures').setOrigin(0).setScrollFactor(0).setDepth(-25), scrollRatio: 0.38, drift: 0 },
+      { tile: this.add.tileSprite(0, CRASH_GROUND_Y - 315, GAME_WIDTH, 340, 'bg-ground-haze').setOrigin(0).setScrollFactor(0).setDepth(-24), scrollRatio: 0.62, drift: 0 },
     ];
     this.updateBackground();
   }
@@ -473,13 +593,13 @@ export class RunScene extends Phaser.Scene {
 
     const graphics = this.add.graphics().setVisible(false);
     graphics.fillStyle(0x02040b, 1);
-    graphics.fillRect(0, 0, GAME_WIDTH, SPACE_Y + 20);
+    graphics.fillRect(0, 0, GAME_WIDTH, SPACE_Y + 28);
     graphics.fillStyle(0x061a28, 1);
-    graphics.fillRect(0, SPACE_Y + 20, GAME_WIDTH, 168);
+    graphics.fillRect(0, SPACE_Y + 28, GAME_WIDTH, SKY_Y - SPACE_Y + 68);
     graphics.fillStyle(0x0b2112, 1);
-    graphics.fillRect(0, 288, GAME_WIDTH, GAME_HEIGHT - 288);
+    graphics.fillRect(0, SKY_Y + 96, GAME_WIDTH, GAME_HEIGHT - SKY_Y - 96);
     graphics.fillStyle(0x0f2110, 0.72);
-    graphics.fillRect(0, 430, GAME_WIDTH, GAME_HEIGHT - 430);
+    graphics.fillRect(0, GROUND_Y - 210, GAME_WIDTH, GAME_HEIGHT - GROUND_Y + 210);
     graphics.generateTexture('bg-gradient', GAME_WIDTH, GAME_HEIGHT);
     graphics.destroy();
   }
@@ -501,7 +621,7 @@ export class RunScene extends Phaser.Scene {
     for (let x = 0; x < GAME_WIDTH; x += 220) {
       graphics.lineBetween(x + 24, 92, x + 128, 38);
     }
-    graphics.generateTexture('bg-stars', GAME_WIDTH, 132);
+    graphics.generateTexture('bg-stars', GAME_WIDTH, SPACE_Y + 32);
     graphics.destroy();
   }
 
@@ -512,9 +632,9 @@ export class RunScene extends Phaser.Scene {
 
     const graphics = this.add.graphics().setVisible(false);
     const cloudRows = [
-      { y: 42, color: 0xc8fbff, alpha: 0.13, step: 260 },
-      { y: 96, color: 0x8cfffb, alpha: 0.1, step: 340 },
-      { y: 138, color: 0xf0fff4, alpha: 0.07, step: 300 },
+      { y: 54, color: 0xc8fbff, alpha: 0.13, step: 260 },
+      { y: 148, color: 0x8cfffb, alpha: 0.1, step: 340 },
+      { y: 230, color: 0xf0fff4, alpha: 0.07, step: 300 },
     ];
 
     for (const row of cloudRows) {
@@ -525,7 +645,7 @@ export class RunScene extends Phaser.Scene {
       }
     }
 
-    graphics.generateTexture('bg-clouds', GAME_WIDTH, 190);
+    graphics.generateTexture('bg-clouds', GAME_WIDTH, 340);
     graphics.destroy();
   }
 
@@ -537,14 +657,14 @@ export class RunScene extends Phaser.Scene {
     const graphics = this.add.graphics().setVisible(false);
     graphics.fillStyle(COLORS.green, 0.035);
     for (let x = -120; x < GAME_WIDTH + 260; x += 280) {
-      graphics.fillCircle(x + 140, 38, 86);
-      graphics.fillRoundedRect(x + 76, 96, 128, 260, 22);
+      graphics.fillCircle(x + 140, 78, 112);
+      graphics.fillRoundedRect(x + 76, 158, 128, 384, 22);
     }
     graphics.lineStyle(2, COLORS.green, 0.075);
     for (let x = -60; x < GAME_WIDTH + 260; x += 300) {
-      graphics.strokeRoundedRect(x + 35, 82, 190, 320, 18);
+      graphics.strokeRoundedRect(x + 35, 132, 190, 442, 18);
     }
-    graphics.generateTexture('bg-far-structures', GAME_WIDTH, 330);
+    graphics.generateTexture('bg-far-structures', GAME_WIDTH, 560);
     graphics.destroy();
   }
 
@@ -554,18 +674,19 @@ export class RunScene extends Phaser.Scene {
     }
 
     const graphics = this.add.graphics().setVisible(false);
+    const textureHeight = 520;
     graphics.fillStyle(0x0a2a17, 0.42);
     for (let x = -100; x < GAME_WIDTH + 180; x += 180) {
-      const height = 120 + ((x + 700) % 5) * 18;
-      graphics.fillRoundedRect(x, 300 - height, 88, height, 18);
-      graphics.fillCircle(x + 44, 300 - height + 8, 54);
+      const height = 220 + ((x + 700) % 5) * 36;
+      graphics.fillRoundedRect(x, textureHeight - height, 88, height, 18);
+      graphics.fillCircle(x + 44, textureHeight - height + 8, 54);
     }
     graphics.lineStyle(2, 0x65d9ff, 0.12);
     for (let x = 0; x < GAME_WIDTH + 120; x += 240) {
-      graphics.lineBetween(x, 210, x + 80, 142);
-      graphics.lineBetween(x + 80, 142, x + 180, 202);
+      graphics.lineBetween(x, 382, x + 80, 268);
+      graphics.lineBetween(x + 80, 268, x + 180, 366);
     }
-    graphics.generateTexture('bg-near-structures', GAME_WIDTH, 300);
+    graphics.generateTexture('bg-near-structures', GAME_WIDTH, textureHeight);
     graphics.destroy();
   }
 
@@ -584,21 +705,53 @@ export class RunScene extends Phaser.Scene {
     for (let x = -40; x < GAME_WIDTH + 160; x += 210) {
       graphics.strokeRoundedRect(x, 52, 140, 170, 16);
     }
-    graphics.generateTexture('bg-ground-haze', GAME_WIDTH, 210);
+    graphics.generateTexture('bg-ground-haze', GAME_WIDTH, 340);
     graphics.destroy();
   }
 
   private drawPlatforms(): void {
+    this.drawGround();
     this.platformGraphics.clear();
     for (const platform of this.chunk.platforms) {
-      const color = platform.kind === 'boost' ? COLORS.boost : this.getBiomePlatformColor(platform.x);
-      const accent = platform.kind === 'boost' ? COLORS.green : this.getBiomeAccentColor(platform.x);
+      const color = platform.kind === 'boost' ? COLORS.boost : platform.kind === 'start' ? 0x26321b : this.getBiomePlatformColor(platform.x);
+      const accent = platform.kind === 'boost' ? COLORS.green : platform.kind === 'start' ? 0xffd36a : this.getBiomeAccentColor(platform.x);
       this.platformGraphics.fillStyle(color, 1);
       this.platformGraphics.fillRoundedRect(platform.x, platform.y, platform.w, platform.h, 12);
       this.platformGraphics.lineStyle(platform.kind === 'boost' ? 4 : 3, accent, platform.kind === 'boost' ? 0.75 : 0.42);
       this.platformGraphics.strokeRoundedRect(platform.x, platform.y, platform.w, platform.h, 12);
+      if (platform.kind === 'start') {
+        this.platformGraphics.fillStyle(0xffd36a, 0.16);
+        this.platformGraphics.fillRoundedRect(platform.x + 24, platform.y + 10, platform.w - 48, 8, 4);
+      }
     }
+    this.drawImpactMarks();
     this.drawMilestoneBeacons();
+  }
+
+  private drawGround(): void {
+    const cameraX = this.cameras.main.scrollX;
+    const viewX = cameraX - 120;
+    const width = GAME_WIDTH + 240;
+    const top = CRASH_GROUND_Y;
+    const startX = Math.floor(viewX / 96) * 96;
+    const endX = viewX + width + 96;
+
+    this.groundGraphics.clear();
+    this.groundGraphics.fillStyle(0x071009, 1);
+    this.groundGraphics.fillRect(viewX, top, width, GAME_HEIGHT - top + 80);
+    this.groundGraphics.fillStyle(0x123017, 0.9);
+    for (let x = startX; x < endX; x += 96) {
+      const crest = top + Math.sin(x * 0.013) * 7 + Math.sin(x * 0.031) * 5;
+      this.groundGraphics.fillTriangle(x, top + 34, x + 48, crest, x + 96, top + 34);
+    }
+    this.groundGraphics.lineStyle(3, COLORS.green, 0.28);
+    this.groundGraphics.lineBetween(viewX, top, viewX + width, top);
+    this.groundGraphics.lineStyle(2, 0xffd36a, 0.12);
+    for (let x = startX; x < endX; x += 144) {
+      const y = top + 38 + Math.sin(x * 0.021) * 10;
+      this.groundGraphics.lineBetween(x, y, x + 62, y + 18);
+      this.groundGraphics.lineBetween(x + 62, y + 18, x + 112, y + 5);
+    }
   }
 
   private drawMilestoneBeacons(): void {
@@ -613,13 +766,14 @@ export class RunScene extends Phaser.Scene {
         continue;
       }
 
+      const beaconY = SPACE_Y + 48;
       const pulse = 0.62 + Math.sin(this.time.now / 180) * 0.2;
       this.platformGraphics.lineStyle(3, milestone.color, pulse);
-      this.platformGraphics.lineBetween(x, 118, x, GROUND_Y - 36);
+      this.platformGraphics.lineBetween(x, beaconY, x, GROUND_Y - 36);
       this.platformGraphics.fillStyle(milestone.color, 0.22 + pulse * 0.22);
-      this.platformGraphics.fillCircle(x, 118, 24);
+      this.platformGraphics.fillCircle(x, beaconY, 24);
       this.platformGraphics.fillStyle(milestone.color, 0.92);
-      this.platformGraphics.fillTriangle(x - 12, 118, x + 18, 106, x + 18, 130);
+      this.platformGraphics.fillTriangle(x - 12, beaconY, x + 18, beaconY - 12, x + 18, beaconY + 12);
     }
   }
 
@@ -642,15 +796,51 @@ export class RunScene extends Phaser.Scene {
     }
 
     const ratio = clamp(this.launchCharge / LAUNCH_CHARGE_SECONDS, 0, 1);
-    const x = START_X - 78;
-    const y = GROUND_Y - 185;
+    const grade = this.getLaunchGrade(ratio);
+    const x = START_X - 102;
+    const y = GROUND_Y - 252;
+    const width = 260;
+    const barW = width - 18;
+    const pulse = 0.72 + Math.sin(this.time.now / 95) * 0.18;
+    const perfectX = x + 9 + barW * LAUNCH_PERFECT_MIN;
+    const perfectW = barW * (LAUNCH_PERFECT_MAX - LAUNCH_PERFECT_MIN);
+    const arrowBaseX = START_X + 18;
+    const arrowBaseY = GROUND_Y - 50;
+    const arrowLength = 174 + ratio * 220;
+    const arrowLift = 58 + ratio * 145;
 
-    this.launchGraphics.fillStyle(0x041108, 0.9);
-    this.launchGraphics.fillRoundedRect(x, y, 156, 18, 9);
+    this.launchGraphics.fillStyle(0xffd36a, 0.08 + ratio * 0.12);
+    this.launchGraphics.fillCircle(START_X, GROUND_Y - 18, 42 + ratio * 38);
+    this.launchGraphics.lineStyle(5, grade.color, 0.35 + ratio * 0.35);
+    this.launchGraphics.lineBetween(arrowBaseX, arrowBaseY, arrowBaseX + arrowLength, arrowBaseY - arrowLift);
+    this.launchGraphics.fillStyle(grade.color, 0.72);
+    this.launchGraphics.fillTriangle(
+      arrowBaseX + arrowLength + 16,
+      arrowBaseY - arrowLift - 6,
+      arrowBaseX + arrowLength - 12,
+      arrowBaseY - arrowLift - 18,
+      arrowBaseX + arrowLength - 4,
+      arrowBaseY - arrowLift + 16,
+    );
+
+    this.launchGraphics.fillStyle(0x041108, 0.92);
+    this.launchGraphics.fillRoundedRect(x, y, width, 34, 12);
     this.launchGraphics.lineStyle(2, COLORS.green, 0.58);
-    this.launchGraphics.strokeRoundedRect(x, y, 156, 18, 9);
-    this.launchGraphics.fillStyle(ratio > 0.82 ? 0x8cfffb : COLORS.green, 0.95);
-    this.launchGraphics.fillRoundedRect(x + 4, y + 4, 148 * ratio, 10, 5);
+    this.launchGraphics.strokeRoundedRect(x, y, width, 34, 12);
+    this.launchGraphics.fillStyle(0x0f2f18, 1);
+    this.launchGraphics.fillRoundedRect(x + 9, y + 10, barW, 14, 7);
+    this.launchGraphics.fillStyle(0x8cfffb, 0.25 + pulse * 0.28);
+    this.launchGraphics.fillRoundedRect(perfectX, y + 8, perfectW, 18, 9);
+    this.launchGraphics.fillStyle(grade.color, 0.95);
+    this.launchGraphics.fillRoundedRect(x + 9, y + 10, barW * ratio, 14, 7);
+    this.launchGraphics.lineStyle(3, grade.color, 0.85);
+    this.launchGraphics.lineBetween(x + 9 + barW * ratio, y + 5, x + 9 + barW * ratio, y + 30);
+
+    for (let i = 0; i < 5; i += 1) {
+      const lit = ratio >= (i + 1) / 5;
+      this.launchGraphics.fillStyle(lit ? grade.color : COLORS.green, lit ? 0.9 : 0.18);
+      this.launchGraphics.fillCircle(x + 28 + i * 48, y + 52, lit ? 8 : 6);
+    }
   }
 
   private syncEntitySprites(time: number): void {
@@ -760,6 +950,27 @@ export class RunScene extends Phaser.Scene {
     }
   }
 
+  private handleLandingImpact(snap: PlayerSnapshot, impactSpeed: number, forceCrash = false): void {
+    const power = forceCrash ? 1 : clamp((impactSpeed - 420) / 760, 0, 1);
+    soundSystem.land(power);
+
+    if (power > 0.18 || forceCrash) {
+      this.spawnLandingCrash(snap.x, snap.y + snap.h, power);
+    } else {
+      this.spawnDust(snap.x, snap.y + snap.h);
+    }
+
+    if ((forceCrash || power > 0.68) && this.time.now - this.lastCrashMessageAt > 1400) {
+      this.lastCrashMessageAt = this.time.now;
+      this.game.events.emit(GameEvents.Message, {
+        title: forceCrash ? 'Crash au sol !' : 'Atterrissage lourd !',
+        body: forceCrash
+          ? 'Titan percute le sol : run terminee, mais les os ramasses restent gagnes.'
+          : 'Le choc laisse des fissures. Rebondis ou relance la rocket pour repartir proprement.',
+      });
+    }
+  }
+
   private spawnBurst(x: number, y: number, count: number, color: number): void {
     for (let i = 0; i < count; i += 1) {
       const angle = Math.random() * Math.PI * 2;
@@ -774,6 +985,39 @@ export class RunScene extends Phaser.Scene {
     }
   }
 
+  private spawnLandingCrash(x: number, y: number, power: number): void {
+    const radius = 34 + power * 78;
+    const life = 1.2 + power * 1.7;
+    this.impactMarks.push({
+      x,
+      y,
+      radius,
+      power,
+      life,
+      max: life,
+      seed: Math.random() * 1000,
+    });
+
+    this.spawnDust(x, y);
+    for (let i = 0; i < 12 + power * 24; i += 1) {
+      const angle = Math.PI + Math.random() * Math.PI;
+      const speed = 120 + Math.random() * (270 + power * 260);
+      this.createParticle(
+        x + Math.random() * 54 - 27,
+        y - 6,
+        Math.cos(angle) * speed,
+        -80 - Math.random() * (150 + power * 260),
+        Math.random() > 0.44 ? 0xb99a6a : 0x5f4a34,
+        0.36 + Math.random() * (0.28 + power * 0.26),
+      );
+    }
+
+    this.cameras.main.shake(90 + power * 210, 0.002 + power * 0.007);
+    this.flash.setFillStyle(power > 0.74 ? 0xfff1a6 : 0xff503c, 1);
+    this.flash.setAlpha(0.08 + power * 0.2);
+    this.tweens.add({ targets: this.flash, alpha: 0, duration: 180 + power * 180 });
+  }
+
   private spawnRocketTrail(x: number, y: number, facing: number): void {
     for (let i = 0; i < 3; i += 1) {
       this.createParticle(x - facing * 46 + Math.random() * 16 - 8, y + Math.random() * 42 - 18, -facing * (230 + Math.random() * 260), -60 + Math.random() * 120, 0x7dff50, 0.32 + Math.random() * 0.22);
@@ -783,6 +1027,23 @@ export class RunScene extends Phaser.Scene {
   private createParticle(x: number, y: number, vx: number, vy: number, color: number, life: number): void {
     const shape = this.add.circle(x, y, 4 + Math.random() * 9, color, 0.75).setDepth(18);
     this.particles.push({ shape, vx, vy, life, max: life });
+  }
+
+  private spawnLaunchSparks(charge: number): void {
+    const snap = this.titan.getSnapshot();
+    const count = 1 + Math.floor(charge * 3);
+    const color = this.getLaunchGrade(charge).color;
+
+    for (let i = 0; i < count; i += 1) {
+      this.createParticle(
+        snap.x - 44 + Math.random() * 26,
+        snap.y + snap.h - 18 + Math.random() * 20,
+        -120 - Math.random() * (140 + charge * 180),
+        -80 - Math.random() * (120 + charge * 180),
+        color,
+        0.2 + Math.random() * 0.18,
+      );
+    }
   }
 
   private updateParticles(dt: number): void {
@@ -801,7 +1062,36 @@ export class RunScene extends Phaser.Scene {
     }
   }
 
-  private finishRun(): void {
+  private updateImpactMarks(dt: number): void {
+    for (let i = this.impactMarks.length - 1; i >= 0; i -= 1) {
+      const mark = this.impactMarks[i];
+      mark.life -= dt;
+      if (mark.life <= 0) {
+        this.impactMarks.splice(i, 1);
+      }
+    }
+  }
+
+  private drawImpactMarks(): void {
+    for (const mark of this.impactMarks) {
+      const alpha = clamp(mark.life / mark.max, 0, 1);
+      this.platformGraphics.lineStyle(2 + mark.power * 3, 0x060402, 0.34 * alpha);
+      this.platformGraphics.strokeEllipse(mark.x, mark.y + 4, mark.radius * 1.55, 12 + mark.power * 18);
+      this.platformGraphics.lineStyle(2, 0xffd36a, 0.18 * alpha);
+      this.platformGraphics.strokeEllipse(mark.x, mark.y + 2, mark.radius * 1.1, 7 + mark.power * 10);
+
+      for (let i = 0; i < 7; i += 1) {
+        const angle = mark.seed + i * 0.92;
+        const length = mark.radius * (0.35 + ((i % 3) + 1) * 0.18);
+        const startX = mark.x + Math.cos(angle) * mark.radius * 0.18;
+        const startY = mark.y + Math.sin(angle) * 4;
+        this.platformGraphics.lineStyle(1 + mark.power * 2, 0x090604, 0.38 * alpha);
+        this.platformGraphics.lineBetween(startX, startY, startX + Math.cos(angle) * length, startY + Math.sin(angle) * length * 0.18);
+      }
+    }
+  }
+
+  private finishRun(forcedReason?: RunSummary['finishReason'], delayMs = 0): void {
     if (this.ended) {
       return;
     }
@@ -809,7 +1099,7 @@ export class RunScene extends Phaser.Scene {
     this.ended = true;
     this.titan.knockOut();
     soundSystem.finish();
-    const finishReason: RunSummary['finishReason'] = this.titan.isLostInSpace() ? 'space' : 'fall';
+    const finishReason: RunSummary['finishReason'] = forcedReason ?? (this.titan.isLostInSpace() ? 'space' : 'fall');
     if (finishReason === 'space') {
       this.game.events.emit(GameEvents.Message, {
         title: "Perdu dans l'espace",
@@ -818,8 +1108,17 @@ export class RunScene extends Phaser.Scene {
     }
     const summary: RunSummary = saveSystem.recordRun(this.stats, this.seed, finishReason);
     this.game.events.emit(GameEvents.SaveChanged, saveSystem.getSnapshot());
-    this.game.events.emit(GameEvents.RunFinished, summary);
-    this.scene.start('ResultScene', { summary });
+    const showResult = () => {
+      this.game.events.emit(GameEvents.RunFinished, summary);
+      this.scene.start('ResultScene', { summary });
+    };
+
+    if (delayMs > 0) {
+      this.time.delayedCall(delayMs, showResult);
+      return;
+    }
+
+    showResult();
   }
 
   private restartRun(seed: string): void {

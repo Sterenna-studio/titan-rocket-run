@@ -7,7 +7,7 @@ export class ChunkManager {
   private generator: PlatformGenerator;
   private nextPlatformId = 1;
   private nextEntityId = 1;
-  private furthestX = 920;
+  private furthestX = 1160;
   private readonly platformList: PlatformData[] = [];
   private readonly entityList: WorldEntity[] = [];
 
@@ -28,12 +28,12 @@ export class ChunkManager {
     this.generator = new PlatformGenerator(seed, new DifficultyCurve());
     this.nextPlatformId = 1;
     this.nextEntityId = 1;
-    this.furthestX = 920;
+    this.furthestX = 1160;
     this.platformList.splice(0, this.platformList.length, {
       id: 0,
       x: 0,
       y: GROUND_Y,
-      w: 920,
+      w: 1160,
       h: 70,
       kind: 'start',
     });

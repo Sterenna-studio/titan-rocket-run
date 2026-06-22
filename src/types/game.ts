@@ -83,6 +83,7 @@ export interface PlayerStepResult {
   boostPad: boolean;
   rocketUsed: boolean;
   bounceUsed: boolean;
+  impactSpeed: number;
 }
 
 export interface PlayerSnapshot {
