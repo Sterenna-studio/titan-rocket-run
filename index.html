@@ -39,6 +39,15 @@
           <p>Les upgrades coutent cher : ramasser les os flottants et toucher les signaux compte plus qu'avant.</p>
         </div>
 
+        <h2>Leaderboard</h2>
+        <div class="leaderboardPanel">
+          <div class="leaderboardHeader">
+            <b>Mode arcade</b>
+            <span>5 lettres</span>
+          </div>
+          <ol id="leaderboard" class="leaderboard"></ol>
+        </div>
+
         <h2>Boutique</h2>
         <div id="shop" class="shop"></div>
 
@@ -85,6 +94,7 @@
           <div id="resultScreen" class="card hidden">
             <h2 id="resTitle">Run termine</h2>
             <div class="stats">
+              <div class="stat score"><b id="resScore">0</b><label>Score arcade</label></div>
               <div class="stat"><b id="resDist">0 m</b><label>Distance</label></div>
               <div class="stat"><b id="resSpeed">0</b><label>Vitesse max</label></div>
               <div class="stat"><b id="resJump">0</b><label>Sauts</label></div>
@@ -93,6 +103,13 @@
               <div class="stat reward"><b id="resReward">+0</b><label>Os gagnes</label></div>
             </div>
             <p id="resBadge" class="badge hidden"></p>
+            <form id="scoreForm" class="scoreForm hidden">
+              <label for="scoreName">Initiales</label>
+              <div>
+                <input id="scoreName" maxlength="5" minlength="5" pattern="[A-Za-z]{5}" autocomplete="off" spellcheck="false" value="TITAN" aria-label="Initiales arcade 5 lettres" />
+                <button id="scoreSubmit" type="submit">Inscrire</button>
+              </div>
+            </form>
             <div class="resButtons">
               <button id="retryBtn" class="cta" type="button">Rejouer (R)</button>
             </div>

@@ -2,10 +2,11 @@ import Phaser from 'phaser';
 import './style.css';
 import { createGameConfig } from './game/config';
 import { GameEvents } from './game/constants';
+import { leaderboardSystem } from './systems/LeaderboardSystem';
 import { saveSystem } from './systems/SaveSystem';
 import { soundSystem } from './systems/SoundSystem';
 import { upgradeSystem } from './systems/UpgradeSystem';
-import type { HudState, RunSummary, SaveData, UiMessage, UpgradeId, VirtualInput } from './types/game';
+import type { HudState, LeaderboardEntry, RunSummary, SaveData, UiMessage, UpgradeId, VirtualInput } from './types/game';
 
 type ButtonEl = HTMLButtonElement;
 
@@ -14,6 +15,7 @@ const game = new Phaser.Game(createGameConfig());
 const ui = {
   best: byId('bestDistance'),
   coins: byId('coins'),
+  leaderboard: byId('leaderboard'),
   shop: byId('shop'),
   msg: byId('message'),
   speedMeter: byId('speedMeter') as HTMLMeterElement,
@@ -32,6 +34,7 @@ const ui = {
   playBtn: byId('playBtn') as ButtonEl,
   retryBtn: byId('retryBtn') as ButtonEl,
   resTitle: byId('resTitle'),
+  resScore: byId('resScore'),
   resDist: byId('resDist'),
   resSpeed: byId('resSpeed'),
   resJump: byId('resJump'),
@@ -39,10 +42,16 @@ const ui = {
   resHits: byId('resHits'),
   resReward: byId('resReward'),
   resBadge: byId('resBadge'),
+  scoreForm: byId('scoreForm') as HTMLFormElement,
+  scoreName: byId('scoreName') as HTMLInputElement,
+  scoreSubmit: byId('scoreSubmit') as ButtonEl,
 };
 
 let soundMuted = false;
+let latestSummary: RunSummary | null = null;
+let scoreSubmitted = false;
 
+renderLeaderboard();
 renderSave(saveSystem.getSnapshot());
 renderMessage({
   title: 'Pret ?',
@@ -51,6 +60,14 @@ renderMessage({
 
 ui.playBtn.addEventListener('click', () => requestStart());
 ui.retryBtn.addEventListener('click', () => requestStart());
+ui.scoreName.addEventListener('input', () => {
+  ui.scoreName.value = ui.scoreName.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 5);
+  updateScoreSubmitState();
+});
+ui.scoreForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+  submitArcadeScore();
+});
 ui.resetSave.addEventListener('click', () => {
   if (!window.confirm('Supprimer la sauvegarde Titan Rocket Run ?')) {
     return;
@@ -110,10 +127,14 @@ function hideOverlay(): void {
 }
 
 function showResult(summary: RunSummary): void {
+  latestSummary = summary;
+  scoreSubmitted = false;
   renderSave(saveSystem.getSnapshot());
+  renderLeaderboard();
   ui.titleScreen.classList.add('hidden');
   ui.resultScreen.classList.remove('hidden');
   ui.overlay.classList.remove('hidden');
+  ui.resScore.textContent = formatScore(leaderboardSystem.calculateScore(summary));
   ui.resDist.textContent = `${summary.distance.toFixed(1)} m`;
   ui.resSpeed.textContent = `${Math.round(summary.maxSpeed)}`;
   ui.resJump.textContent = `${summary.jumps}`;
@@ -125,6 +146,9 @@ function showResult(summary: RunSummary): void {
   const badge = summary.storyEvents > 0 ? `${summary.badge || 'Route decouverte'} - ${summary.storyEvents} signal(s)` : summary.badge;
   ui.resBadge.textContent = badge;
   ui.resBadge.classList.toggle('hidden', !badge);
+  ui.scoreForm.classList.remove('hidden');
+  ui.scoreSubmit.textContent = 'Inscrire';
+  updateScoreSubmitState();
 }
 
 function updateHud(hud: HudState): void {
@@ -148,6 +172,31 @@ function renderSave(save: SaveData): void {
   ui.best.textContent = `${save.best.toFixed(1)} m`;
   ui.coins.textContent = `${save.coins}`;
   renderShop();
+}
+
+function renderLeaderboard(highlightId = ''): void {
+  ui.leaderboard.replaceChildren(...leaderboardSystem.getEntries().map((entry, index) => createLeaderboardRow(entry, index + 1, highlightId)));
+}
+
+function createLeaderboardRow(entry: LeaderboardEntry, rank: number, highlightId: string): HTMLElement {
+  const row = document.createElement('li');
+  row.classList.toggle('isLocal', entry.source === 'local');
+  row.classList.toggle('isHighlight', entry.id === highlightId);
+  row.title = `${entry.distance} m - combo x${entry.combo}`;
+
+  const rankEl = document.createElement('span');
+  rankEl.textContent = `${rank}.`;
+
+  const nameEl = document.createElement('span');
+  nameEl.className = 'leaderboardName';
+  nameEl.textContent = entry.name;
+
+  const scoreEl = document.createElement('span');
+  scoreEl.className = 'leaderboardScore';
+  scoreEl.textContent = formatScore(entry.score);
+
+  row.append(rankEl, nameEl, scoreEl);
+  return row;
 }
 
 function renderShop(): void {
@@ -190,6 +239,35 @@ function buyUpgrade(id: UpgradeId): void {
   renderSave(save);
   game.events.emit(GameEvents.SaveChanged, save);
   renderMessage({ title: 'Upgrade achete', body: 'Les stats de Titan seront appliquees a la prochaine run.' });
+}
+
+function submitArcadeScore(): void {
+  if (!latestSummary || scoreSubmitted) {
+    return;
+  }
+
+  const entry = leaderboardSystem.submitLocalScore(ui.scoreName.value, latestSummary);
+  if (!entry) {
+    updateScoreSubmitState();
+    return;
+  }
+
+  scoreSubmitted = true;
+  ui.scoreSubmit.textContent = 'Inscrit';
+  ui.scoreSubmit.disabled = true;
+  renderLeaderboard(entry.id);
+  renderMessage({
+    title: 'Score inscrit',
+    body: `${entry.name} entre au leaderboard arcade avec ${formatScore(entry.score)} points.`,
+  });
+}
+
+function updateScoreSubmitState(): void {
+  ui.scoreSubmit.disabled = scoreSubmitted || !latestSummary || !leaderboardSystem.normalizeInitials(ui.scoreName.value);
+}
+
+function formatScore(score: number): string {
+  return Math.round(score).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 }
 
 function bindAudioUnlock(): void {

@@ -130,6 +130,16 @@ export interface RunSummary extends RunStats {
   finishReason: 'fall' | 'space';
 }
 
+export interface LeaderboardEntry {
+  id: string;
+  name: string;
+  score: number;
+  distance: number;
+  combo: number;
+  source: 'preset' | 'local';
+  createdAt: string;
+}
+
 export interface HudState {
   distance: number;
   combo: number;
