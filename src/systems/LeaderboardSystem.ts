@@ -29,6 +29,8 @@ export class LeaderboardSystem {
       summary.bonusBones * 18 +
       summary.bestCombo * 175 +
       summary.storyEvents * 900 +
+      summary.riskDodges * 520 +
+      summary.overdrives * 1250 +
       cleanLandings * 25 -
       summary.hits * 220;
 

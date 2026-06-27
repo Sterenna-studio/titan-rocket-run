@@ -62,6 +62,16 @@ export class SoundSystem {
     this.tone({ freq: 880, slideTo: 1180, duration: 0.08, type: 'triangle', gain: 0.12 });
   }
 
+  dodge(): void {
+    this.tone({ freq: 760, slideTo: 1280, duration: 0.09, type: 'triangle', gain: 0.1 });
+    window.setTimeout(() => this.tone({ freq: 1180, slideTo: 1560, duration: 0.06, type: 'square', gain: 0.055 }), 65);
+  }
+
+  overdrive(): void {
+    this.tone({ freq: 360, slideTo: 980, duration: 0.16, type: 'sawtooth', gain: 0.12 });
+    window.setTimeout(() => this.tone({ freq: 720, slideTo: 1440, duration: 0.12, type: 'triangle', gain: 0.09 }), 90);
+  }
+
   milestone(): void {
     this.tone({ freq: 520, slideTo: 980, duration: 0.16, type: 'triangle', gain: 0.13 });
     window.setTimeout(() => this.tone({ freq: 780, slideTo: 1320, duration: 0.14, type: 'square', gain: 0.08 }), 95);

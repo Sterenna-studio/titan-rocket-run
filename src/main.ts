@@ -39,6 +39,8 @@ const ui = {
   resSpeed: byId('resSpeed'),
   resJump: byId('resJump'),
   resBones: byId('resBones'),
+  resDodges: byId('resDodges'),
+  resOverdrives: byId('resOverdrives'),
   resHits: byId('resHits'),
   resReward: byId('resReward'),
   resBadge: byId('resBadge'),
@@ -139,6 +141,8 @@ function showResult(summary: RunSummary): void {
   ui.resSpeed.textContent = `${Math.round(summary.maxSpeed)}`;
   ui.resJump.textContent = `${summary.jumps}`;
   ui.resBones.textContent = `${summary.pickups} (+${summary.bonusBones})`;
+  ui.resDodges.textContent = `${summary.riskDodges}`;
+  ui.resOverdrives.textContent = `${summary.overdrives}`;
   ui.resHits.textContent = `${summary.hits}`;
   ui.resReward.textContent = `+${summary.reward}`;
   ui.resTitle.textContent =

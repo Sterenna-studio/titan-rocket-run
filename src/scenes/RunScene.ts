@@ -87,6 +87,7 @@ export class RunScene extends Phaser.Scene {
   private boostSoundCooldown = 0;
   private missileCooldown = 0;
   private missileNoticeCooldown = 0;
+  private nextOverdriveCombo = 6;
   private launchCharging = true;
   private launchCharge = 0;
   private launchDirection = 1;
@@ -114,6 +115,7 @@ export class RunScene extends Phaser.Scene {
     this.lastCrashMessageAt = 0;
     this.missileCooldown = 0;
     this.missileNoticeCooldown = 0;
+    this.nextOverdriveCombo = 6;
     this.ended = false;
     this.particles = [];
     this.impactMarks = [];
@@ -236,6 +238,7 @@ export class RunScene extends Phaser.Scene {
       snap = this.titan.getSnapshot();
       this.stats.landed += 1;
       this.stats.combo = 0;
+      this.nextOverdriveCombo = 6;
       this.handleLandingImpact(snap, groundImpact, true);
       this.updateStats();
       this.updateCamera(dt);
@@ -464,13 +467,12 @@ export class RunScene extends Phaser.Scene {
 
     for (const bone of this.collect.findCollected(player, this.chunk.entities, time)) {
       this.chunk.markEntityHit(bone.id);
-      this.stats.combo += 1;
+      this.addCombo(1, bone.x, bone.y);
       const comboBonus = Math.floor(this.stats.combo / 4);
       const earnedBones = bone.value + comboBonus;
       this.titan.collectBone(earnedBones);
       this.stats.pickups += 1;
       this.stats.bonusBones += earnedBones;
-      this.stats.bestCombo = Math.max(this.stats.bestCombo, this.stats.combo);
       soundSystem.collect();
       this.spawnBurst(bone.x, bone.y, 14 + comboBonus * 2, comboBonus > 0 ? 0xffd36a : 0x62ff52);
       if (comboBonus > 0 && this.stats.combo % 4 === 0) {
@@ -488,6 +490,7 @@ export class RunScene extends Phaser.Scene {
       this.chunk.markEntityHit(mine.id);
       this.stats.hits += 1;
       this.stats.combo = 0;
+      this.nextOverdriveCombo = 6;
       soundSystem.mine();
       this.spawnBurst(mine.x, mine.y, 18, 0xff5b46);
       this.cameras.main.shake(160, 0.006);
@@ -499,6 +502,66 @@ export class RunScene extends Phaser.Scene {
         body: 'Elle ralentit Titan, mais tu peux sauver la run.',
       });
     }
+
+    this.handleMineGrazes(player, time);
+  }
+
+  private handleMineGrazes(player: { x: number; y: number; r: number }, time: number): void {
+    for (const mine of this.chunk.entities) {
+      if (mine.hit || mine.grazed || mine.type !== 'mine') {
+        continue;
+      }
+
+      const y = mine.y + Math.sin(time * 3 + mine.bob) * 6;
+      const dx = mine.x - player.x;
+      const dy = y - player.y;
+      const distanceSq = dx * dx + dy * dy;
+      const hitRadius = mine.r + player.r;
+      const grazeRadius = hitRadius + 54;
+      if (distanceSq <= hitRadius * hitRadius || distanceSq > grazeRadius * grazeRadius) {
+        continue;
+      }
+
+      const bonus = 4 + Math.min(8, Math.floor(this.stats.combo / 4));
+      this.chunk.markEntityGrazed(mine.id);
+      this.stats.riskDodges += 1;
+      this.stats.bonusBones += bonus;
+      this.addCombo(2, mine.x, y);
+      this.titan.awardRunReward(8, 135);
+      soundSystem.dodge();
+      this.spawnBurst(mine.x, y, 18, 0x8cfffb);
+      this.spawnGrazeRing(mine.x, y);
+      this.game.events.emit(GameEvents.Message, {
+        title: `Esquive street +${bonus} os`,
+        body: 'Mine frolee sans contact : boost gratuit, combo garde et trajectoire relancee.',
+      });
+    }
+  }
+
+  private addCombo(amount: number, x: number, y: number): void {
+    this.stats.combo += amount;
+    this.stats.bestCombo = Math.max(this.stats.bestCombo, this.stats.combo);
+    this.checkComboOverdrive(x, y);
+  }
+
+  private checkComboOverdrive(x: number, y: number): void {
+    if (this.stats.combo < this.nextOverdriveCombo) {
+      return;
+    }
+
+    const threshold = this.nextOverdriveCombo;
+    this.nextOverdriveCombo += 6;
+    this.stats.overdrives += 1;
+    const rewardBones = 6 + Math.floor(threshold / 3);
+    this.stats.bonusBones += rewardBones;
+    this.titan.awardRunReward(18, 260 + threshold * 8);
+    soundSystem.overdrive();
+    this.spawnBurst(x, y, 30, 0xffd36a);
+    this.cameras.main.shake(90, 0.003);
+    this.game.events.emit(GameEvents.Message, {
+      title: `Overdrive combo x${threshold}`,
+      body: `+${rewardBones} os, rocket rechargee et vitesse bonus. Continue la chaine.`,
+    });
   }
 
   private fireMissile(): void {
@@ -526,10 +589,9 @@ export class RunScene extends Phaser.Scene {
 
     this.missileCooldown = this.playerStats.missileCooldown;
     this.chunk.markEntityHit(target.id);
-    this.stats.combo += 3;
+    this.addCombo(3, target.x, target.y);
     this.stats.pickups += 1;
     this.stats.bonusBones += this.playerStats.missileRewardBones;
-    this.stats.bestCombo = Math.max(this.stats.bestCombo, this.stats.combo);
     soundSystem.missile();
     this.spawnMissileShot(snap.x + snap.w * 0.54, snap.y + snap.h * 0.44, target.x, target.y);
     this.spawnBurst(target.x, target.y, 26 + this.playerStats.missileLevel * 4, 0xffd36a);
@@ -594,11 +656,10 @@ export class RunScene extends Phaser.Scene {
     this.stats.storyEvents += 1;
     this.stats.bonusBones += milestone.rewardBones;
     this.stats.pickups += 1;
-    this.stats.combo += 2;
-    this.stats.bestCombo = Math.max(this.stats.bestCombo, this.stats.combo);
+    const snap = this.titan.getSnapshot();
+    this.addCombo(2, snap.x, snap.y + snap.h * 0.45);
     this.stats.bestMilestone = milestone.badge || milestone.title;
 
-    const snap = this.titan.getSnapshot();
     this.titan.awardRunReward(milestone.rocketPercent, milestone.speedBoost);
     soundSystem.milestone();
     this.spawnBurst(snap.x, snap.y + snap.h * 0.45, 28, milestone.color);
@@ -946,6 +1007,15 @@ export class RunScene extends Phaser.Scene {
       sprite.setPosition(entity.x, entity.y + Math.sin(time * 3 + entity.bob) * 6);
       if (entity.type === 'mine') {
         sprite.rotation += 0.015;
+        sprite.setAlpha(entity.grazed ? 0.72 : 1);
+        if (entity.grazed) {
+          sprite.setTint(0x8cfffb);
+        } else {
+          sprite.clearTint();
+        }
+      } else {
+        sprite.setAlpha(1);
+        sprite.clearTint();
       }
     }
 
@@ -1024,6 +1094,8 @@ export class RunScene extends Phaser.Scene {
           `platforms: ${this.chunk.platforms.length}`,
           `entities: ${this.chunk.entities.length}`,
           `combo: ${this.stats.combo}`,
+          `dodges: ${this.stats.riskDodges}`,
+          `overdrives: ${this.stats.overdrives}`,
         ].join('\n'),
       );
     }
@@ -1083,6 +1155,18 @@ export class RunScene extends Phaser.Scene {
     for (let i = 0; i < 8; i += 1) {
       this.createParticle(x + Math.random() * 42 - 21, y - 4, -80 + Math.random() * 160, -30 - Math.random() * 60, 0xbebeb4, 0.28);
     }
+  }
+
+  private spawnGrazeRing(x: number, y: number): void {
+    const ring = this.add.circle(x, y, 54, 0x8cfffb, 0).setDepth(17);
+    ring.setStrokeStyle(4, 0x8cfffb, 0.85);
+    this.tweens.add({
+      targets: ring,
+      alpha: 0,
+      scale: 1.8,
+      duration: 260,
+      onComplete: () => ring.destroy(),
+    });
   }
 
   private spawnLandingCrash(x: number, y: number, power: number): void {
@@ -1267,6 +1351,8 @@ export class RunScene extends Phaser.Scene {
       pickups: 0,
       bonusBones: 0,
       hits: 0,
+      riskDodges: 0,
+      overdrives: 0,
       combo: 0,
       bestCombo: 0,
       storyEvents: 0,

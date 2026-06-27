@@ -73,10 +73,11 @@ export interface WorldEntity {
   r: number;
   value: number;
   hit: boolean;
+  grazed: boolean;
   bob: number;
 }
 
-export type EntityDraft = Omit<WorldEntity, 'id' | 'hit'>;
+export type EntityDraft = Omit<WorldEntity, 'id' | 'hit' | 'grazed'>;
 
 export interface CollisionCircle {
   x: number;
@@ -116,6 +117,8 @@ export interface RunStats {
   pickups: number;
   bonusBones: number;
   hits: number;
+  riskDodges: number;
+  overdrives: number;
   combo: number;
   bestCombo: number;
   storyEvents: number;

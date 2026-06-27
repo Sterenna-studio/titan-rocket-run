@@ -55,6 +55,7 @@ export class ChunkManager {
         this.entityList.push({
           id: this.nextEntityId,
           hit: false,
+          grazed: false,
           ...draft,
         });
         this.nextEntityId += 1;
@@ -68,6 +69,13 @@ export class ChunkManager {
     const entity = this.entityList.find((candidate) => candidate.id === id);
     if (entity) {
       entity.hit = true;
+    }
+  }
+
+  markEntityGrazed(id: number): void {
+    const entity = this.entityList.find((candidate) => candidate.id === id);
+    if (entity) {
+      entity.grazed = true;
     }
   }
 
