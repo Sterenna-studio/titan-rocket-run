@@ -33,6 +33,16 @@ interface Particle {
   max: number;
 }
 
+interface MissileProjectile {
+  sprite: Phaser.GameObjects.Image;
+  direction: number;
+  speed: number;
+  range: number;
+  traveled: number;
+  radius: number;
+  trailTimer: number;
+}
+
 interface ParallaxLayer {
   tile: Phaser.GameObjects.TileSprite;
   scrollRatio: number;
@@ -77,6 +87,7 @@ export class RunScene extends Phaser.Scene {
   private backgroundLayers: ParallaxLayer[] = [];
   private entitySprites = new Map<number, Phaser.GameObjects.Image>();
   private particles: Particle[] = [];
+  private missiles: MissileProjectile[] = [];
   private impactMarks: ImpactMark[] = [];
   private keys!: KeyMap;
   private virtualDown = new Set<VirtualInput['key']>();
@@ -118,6 +129,7 @@ export class RunScene extends Phaser.Scene {
     this.nextOverdriveCombo = 6;
     this.ended = false;
     this.particles = [];
+    this.missiles = [];
     this.impactMarks = [];
     this.entitySprites.clear();
     this.virtualDown.clear();
@@ -125,6 +137,7 @@ export class RunScene extends Phaser.Scene {
 
     this.collect.createTextures(this);
     this.mines.createTextures(this);
+    this.createMissileTexture();
     this.drawBackground();
 
     this.groundGraphics = this.add.graphics().setDepth(5);
@@ -208,6 +221,7 @@ export class RunScene extends Phaser.Scene {
       this.updateLaunch(dt, input);
       this.updateCamera(dt);
       this.updateBackground();
+      this.updateMissiles(dt);
       this.updateParticles(dt);
       this.updateImpactMarks(dt);
       this.drawPlatforms();
@@ -243,6 +257,7 @@ export class RunScene extends Phaser.Scene {
       this.updateStats();
       this.updateCamera(dt);
       this.updateBackground();
+      this.updateMissiles(dt);
       this.updateParticles(dt);
       this.updateImpactMarks(dt);
       this.drawPlatforms();
@@ -268,6 +283,7 @@ export class RunScene extends Phaser.Scene {
       this.spawnRocketTrail(snap.x, snap.y + snap.h * 0.5, snap.vx >= 0 ? 1 : -1);
     }
 
+    this.updateMissiles(dt);
     this.handleEntities();
     this.updateStats();
     this.handleMilestones();
@@ -580,29 +596,35 @@ export class RunScene extends Phaser.Scene {
     }
 
     const snap = this.titan.getSnapshot();
-    const target = this.findMissileTarget(snap);
-    if (!target) {
-      this.missileCooldown = Math.min(0.8, this.playerStats.missileCooldown * 0.25);
-      this.showMissileNotice('Aucune cible', 'Garde le missile pour une mine devant Titan.');
-      return;
-    }
-
+    const direction = snap.vx < -80 ? -1 : 1;
     this.missileCooldown = this.playerStats.missileCooldown;
-    this.chunk.markEntityHit(target.id);
-    this.addCombo(3, target.x, target.y);
-    this.stats.pickups += 1;
-    this.stats.bonusBones += this.playerStats.missileRewardBones;
+    this.launchForwardMissile(snap, direction);
     soundSystem.missile();
-    this.spawnMissileShot(snap.x + snap.w * 0.54, snap.y + snap.h * 0.44, target.x, target.y);
-    this.spawnBurst(target.x, target.y, 26 + this.playerStats.missileLevel * 4, 0xffd36a);
-    this.cameras.main.shake(130, 0.004);
-    this.flash.setFillStyle(0xffd36a, 1);
-    this.flash.setAlpha(0.12);
-    this.tweens.add({ targets: this.flash, alpha: 0, duration: 180 });
     this.game.events.emit(GameEvents.Message, {
-      title: `Missile Titan +${this.playerStats.missileRewardBones} os`,
-      body: 'Mine pulverisee. Sniky valide : trajectoire propre, combo sauve.',
+      title: 'Missile Titan lance',
+      body: "Gros missile vers l'avant : aligne Titan avec une mine pour l'explosion.",
     });
+  }
+
+  private launchForwardMissile(snap: PlayerSnapshot, direction: number): void {
+    const x = snap.x + direction * (snap.w * 0.72);
+    const y = snap.y + snap.h * 0.42;
+    const sprite = this.add.image(x, y, 'titan-forward-missile').setDepth(73);
+    sprite.setFlipX(direction < 0);
+    sprite.setScale(1.2 + this.playerStats.missileLevel * 0.1);
+    sprite.setRotation(0);
+
+    this.missiles.push({
+      sprite,
+      direction,
+      speed: 1760 + this.playerStats.missileLevel * 170 + Math.min(520, Math.abs(snap.vx) * 0.22),
+      range: this.playerStats.missileRange + 520,
+      traveled: 0,
+      radius: 42 + this.playerStats.missileLevel * 4,
+      trailTimer: 0,
+    });
+
+    this.spawnMissileTrail(x - direction * 42, y, direction, 12);
   }
 
   private showMissileNotice(title: string, body: string): void {
@@ -614,25 +636,73 @@ export class RunScene extends Phaser.Scene {
     this.game.events.emit(GameEvents.Message, { title, body });
   }
 
-  private findMissileTarget(snap: PlayerSnapshot): WorldEntity | undefined {
-    const originX = snap.x + snap.w * 0.45;
-    const originY = snap.y + snap.h * 0.5;
-    const range = this.playerStats.missileRange;
-    const radius = this.playerStats.missileBlastRadius;
+  private updateMissiles(dt: number): void {
+    for (let i = this.missiles.length - 1; i >= 0; i -= 1) {
+      const missile = this.missiles[i];
+      const move = missile.speed * dt;
+      missile.traveled += move;
+      missile.sprite.x += missile.direction * move;
+      missile.sprite.y += Math.sin(this.time.now / 75 + i) * 0.42;
+      missile.trailTimer -= dt;
 
-    return this.chunk.entities
-      .filter((entity) => (
-        entity.type === 'mine' &&
-        !entity.hit &&
-        entity.x >= originX - 30 &&
-        entity.x <= originX + range &&
-        Math.abs(entity.y - originY) <= radius + 220
-      ))
-      .sort((a, b) => {
-        const ax = Math.abs(a.x - originX);
-        const bx = Math.abs(b.x - originX);
-        return ax - bx;
-      })[0];
+      if (missile.trailTimer <= 0) {
+        this.spawnMissileTrail(missile.sprite.x - missile.direction * 58, missile.sprite.y, missile.direction, 4);
+        missile.trailTimer = 0.035;
+      }
+
+      const target = this.findMissileImpact(missile);
+      if (target) {
+        this.explodeMissile(missile, target);
+        this.missiles.splice(i, 1);
+        continue;
+      }
+
+      if (missile.traveled >= missile.range || Math.abs(missile.sprite.x - this.cameras.main.scrollX) > GAME_WIDTH + 360) {
+        this.explodeMissile(missile);
+        this.missiles.splice(i, 1);
+      }
+    }
+  }
+
+  private findMissileImpact(missile: MissileProjectile): WorldEntity | undefined {
+    return this.chunk.entities.find((entity) => {
+      if (entity.hit || entity.type !== 'mine') {
+        return false;
+      }
+
+      const dx = entity.x - missile.sprite.x;
+      const dy = entity.y - missile.sprite.y;
+      const radius = entity.r + missile.radius;
+      return dx * dx + dy * dy <= radius * radius;
+    });
+  }
+
+  private explodeMissile(missile: MissileProjectile, target?: WorldEntity): void {
+    const x = target?.x ?? missile.sprite.x;
+    const y = target?.y ?? missile.sprite.y;
+    missile.sprite.destroy();
+
+    if (!target) {
+      this.spawnBurst(x, y, 14, 0xffd36a);
+      this.cameras.main.shake(70, 0.002);
+      return;
+    }
+
+    this.chunk.markEntityHit(target.id);
+    this.addCombo(3, target.x, target.y);
+    this.stats.pickups += 1;
+    this.stats.bonusBones += this.playerStats.missileRewardBones;
+    soundSystem.mine();
+    this.spawnBurst(target.x, target.y, 28 + this.playerStats.missileLevel * 5, 0xffd36a);
+    this.spawnBurst(target.x - missile.direction * 44, target.y, 16, 0x8cfffb);
+    this.cameras.main.shake(155, 0.005);
+    this.flash.setFillStyle(0xffd36a, 1);
+    this.flash.setAlpha(0.16);
+    this.tweens.add({ targets: this.flash, alpha: 0, duration: 190 });
+    this.game.events.emit(GameEvents.Message, {
+      title: `Impact missile +${this.playerStats.missileRewardBones} os`,
+      body: 'Mine explosee par le gros missile. Le combo repart vers l’avant.',
+    });
   }
 
   private updateStats(): void {
@@ -732,6 +802,31 @@ export class RunScene extends Phaser.Scene {
     this.createFarStructuresTexture();
     this.createNearStructuresTexture();
     this.createGroundHazeTexture();
+  }
+
+  private createMissileTexture(): void {
+    if (this.textures.exists('titan-forward-missile')) {
+      return;
+    }
+
+    const graphics = this.add.graphics().setVisible(false);
+    graphics.fillStyle(0x071009, 0.55);
+    graphics.fillEllipse(78, 34, 118, 34);
+    graphics.fillStyle(0xecfff0, 1);
+    graphics.fillRoundedRect(22, 18, 96, 28, 14);
+    graphics.fillStyle(0xffd36a, 1);
+    graphics.fillTriangle(112, 12, 156, 32, 112, 52);
+    graphics.fillStyle(0x8cfffb, 0.9);
+    graphics.fillRoundedRect(42, 24, 42, 8, 4);
+    graphics.fillStyle(0xff5b46, 1);
+    graphics.fillTriangle(30, 18, 10, 8, 22, 30);
+    graphics.fillTriangle(30, 46, 10, 56, 22, 34);
+    graphics.fillStyle(0xffd36a, 0.82);
+    graphics.fillTriangle(18, 22, 0, 32, 18, 42);
+    graphics.lineStyle(4, 0x62ff52, 0.58);
+    graphics.strokeRoundedRect(22, 18, 96, 28, 14);
+    graphics.generateTexture('titan-forward-missile', 166, 64);
+    graphics.destroy();
   }
 
   private createGradientTexture(): void {
@@ -1208,32 +1303,16 @@ export class RunScene extends Phaser.Scene {
     }
   }
 
-  private spawnMissileShot(fromX: number, fromY: number, toX: number, toY: number): void {
-    const beam = this.add.line(0, 0, fromX, fromY, toX, toY, 0xffd36a, 0.88).setOrigin(0).setDepth(74);
-    const dx = toX - fromX;
-    const dy = toY - fromY;
-    const distance = Math.max(1, Math.hypot(dx, dy));
-    const nx = dx / distance;
-    const ny = dy / distance;
-
-    beam.setLineWidth(8, 3);
-    this.tweens.add({
-      targets: beam,
-      alpha: 0,
-      duration: 180,
-      onComplete: () => beam.destroy(),
-    });
-
-    for (let i = 0; i < 18; i += 1) {
-      const t = i / 17;
-      const spread = (Math.random() - 0.5) * 80;
+  private spawnMissileTrail(x: number, y: number, direction: number, count: number): void {
+    for (let i = 0; i < count; i += 1) {
+      const spread = Math.random() * 42 - 21;
       this.createParticle(
-        fromX + dx * t + -ny * spread,
-        fromY + dy * t + nx * spread,
-        nx * (180 + Math.random() * 220) + -ny * spread * 2,
-        ny * (180 + Math.random() * 220) + nx * spread * 2,
-        i % 3 === 0 ? 0x8cfffb : 0xffd36a,
-        0.2 + Math.random() * 0.18,
+        x - direction * Math.random() * 26,
+        y + spread,
+        -direction * (320 + Math.random() * 360),
+        -80 + Math.random() * 160,
+        i % 3 === 0 ? 0xff5b46 : 0xffd36a,
+        0.18 + Math.random() * 0.18,
       );
     }
   }
