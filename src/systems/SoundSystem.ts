@@ -89,6 +89,11 @@ export class SoundSystem {
     this.tone({ freq: 170, slideTo: 90, duration: 0.16, type: 'sawtooth', gain: 0.13 });
   }
 
+  missile(): void {
+    this.tone({ freq: 310, slideTo: 920, duration: 0.1, type: 'sawtooth', gain: 0.11 });
+    window.setTimeout(() => this.tone({ freq: 90, slideTo: 46, duration: 0.16, type: 'triangle', gain: 0.1 }), 82);
+  }
+
   finish(): void {
     this.tone({ freq: 190, slideTo: 80, duration: 0.28, type: 'triangle', gain: 0.1 });
   }

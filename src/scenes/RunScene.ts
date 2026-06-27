@@ -22,7 +22,7 @@ import { RUN_MILESTONES, getNextMilestone } from '../systems/RunMilestones';
 import { saveSystem } from '../systems/SaveSystem';
 import { soundSystem } from '../systems/SoundSystem';
 import { upgradeSystem } from '../systems/UpgradeSystem';
-import type { HudState, InputState, PlayerSnapshot, RunMilestone, RunStats, RunSummary, VirtualInput } from '../types/game';
+import type { HudState, InputState, PlayerSnapshot, RunMilestone, RunStats, RunSummary, VirtualInput, WorldEntity } from '../types/game';
 import { ChunkManager } from '../world/ChunkManager';
 
 interface Particle {
@@ -58,7 +58,7 @@ interface LaunchGrade {
   rocketPercent: number;
 }
 
-type KeyMap = Record<'a' | 'q' | 'd' | 'left' | 'right' | 'space' | 'shift', Phaser.Input.Keyboard.Key>;
+type KeyMap = Record<'a' | 'q' | 'd' | 'left' | 'right' | 'space' | 'shift' | 'e', Phaser.Input.Keyboard.Key>;
 
 export class RunScene extends Phaser.Scene {
   private seed = '';
@@ -85,6 +85,8 @@ export class RunScene extends Phaser.Scene {
   private playerStats = upgradeSystem.getPlayerStats();
   private jumpBuffer = 0;
   private boostSoundCooldown = 0;
+  private missileCooldown = 0;
+  private missileNoticeCooldown = 0;
   private launchCharging = true;
   private launchCharge = 0;
   private launchDirection = 1;
@@ -110,6 +112,8 @@ export class RunScene extends Phaser.Scene {
     this.launchCharge = 0;
     this.launchSparkTimer = 0;
     this.lastCrashMessageAt = 0;
+    this.missileCooldown = 0;
+    this.missileNoticeCooldown = 0;
     this.ended = false;
     this.particles = [];
     this.impactMarks = [];
@@ -193,6 +197,8 @@ export class RunScene extends Phaser.Scene {
 
     this.jumpBuffer = Math.max(0, this.jumpBuffer - dt);
     this.boostSoundCooldown = Math.max(0, this.boostSoundCooldown - dt);
+    this.missileCooldown = Math.max(0, this.missileCooldown - dt);
+    this.missileNoticeCooldown = Math.max(0, this.missileNoticeCooldown - dt);
     this.chunk.ensure(this.cameras.main.scrollX, GAME_WIDTH);
 
     const input = this.getInputState();
@@ -286,6 +292,7 @@ export class RunScene extends Phaser.Scene {
     keyboard.addCapture([
       Phaser.Input.Keyboard.KeyCodes.SPACE,
       Phaser.Input.Keyboard.KeyCodes.SHIFT,
+      Phaser.Input.Keyboard.KeyCodes.E,
       Phaser.Input.Keyboard.KeyCodes.F3,
       Phaser.Input.Keyboard.KeyCodes.F5,
       Phaser.Input.Keyboard.KeyCodes.H,
@@ -299,6 +306,7 @@ export class RunScene extends Phaser.Scene {
       right: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT),
       space: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),
       shift: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT),
+      e: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.E),
     };
 
     keyboard.on('keydown-SPACE', (event: KeyboardEvent) => {
@@ -308,6 +316,10 @@ export class RunScene extends Phaser.Scene {
     keyboard.on('keyup-SPACE', (event: KeyboardEvent) => {
       event.preventDefault();
       this.titan.releaseJump();
+    });
+    keyboard.on('keydown-E', (event: KeyboardEvent) => {
+      event.preventDefault();
+      this.fireMissile();
     });
     keyboard.on('keydown-R', () => this.restartRun(this.seed));
     keyboard.on('keydown-F3', (event: KeyboardEvent) => {
@@ -336,6 +348,8 @@ export class RunScene extends Phaser.Scene {
       this.virtualDown.add(input.key);
       if (input.key === 'space') {
         this.jumpBuffer = 0.13;
+      } else if (input.key === 'missile') {
+        this.fireMissile();
       } else if (input.key === 'r') {
         this.restartRun(this.seed);
       }
@@ -353,6 +367,7 @@ export class RunScene extends Phaser.Scene {
       left: this.keys.a.isDown || this.keys.q.isDown || this.keys.left.isDown || this.virtualDown.has('a'),
       right: this.keys.d.isDown || this.keys.right.isDown || this.virtualDown.has('d'),
       rocket: this.keys.shift.isDown || this.virtualDown.has('shift'),
+      missile: this.keys.e.isDown || this.virtualDown.has('missile'),
       jumpHeld: this.keys.space.isDown || this.virtualDown.has('space'),
     };
   }
@@ -484,6 +499,78 @@ export class RunScene extends Phaser.Scene {
         body: 'Elle ralentit Titan, mais tu peux sauver la run.',
       });
     }
+  }
+
+  private fireMissile(): void {
+    if (this.ended || this.launchCharging) {
+      return;
+    }
+
+    if (this.playerStats.missileLevel <= 0) {
+      this.showMissileNotice('Missile verrouille', 'Achete Missile Titan dans la boutique pour nettoyer les mines.');
+      return;
+    }
+
+    if (this.missileCooldown > 0) {
+      this.showMissileNotice('Missile en recharge', `Encore ${Math.ceil(this.missileCooldown)}s avant le prochain tir.`);
+      return;
+    }
+
+    const snap = this.titan.getSnapshot();
+    const target = this.findMissileTarget(snap);
+    if (!target) {
+      this.missileCooldown = Math.min(0.8, this.playerStats.missileCooldown * 0.25);
+      this.showMissileNotice('Aucune cible', 'Garde le missile pour une mine devant Titan.');
+      return;
+    }
+
+    this.missileCooldown = this.playerStats.missileCooldown;
+    this.chunk.markEntityHit(target.id);
+    this.stats.combo += 3;
+    this.stats.pickups += 1;
+    this.stats.bonusBones += this.playerStats.missileRewardBones;
+    this.stats.bestCombo = Math.max(this.stats.bestCombo, this.stats.combo);
+    soundSystem.missile();
+    this.spawnMissileShot(snap.x + snap.w * 0.54, snap.y + snap.h * 0.44, target.x, target.y);
+    this.spawnBurst(target.x, target.y, 26 + this.playerStats.missileLevel * 4, 0xffd36a);
+    this.cameras.main.shake(130, 0.004);
+    this.flash.setFillStyle(0xffd36a, 1);
+    this.flash.setAlpha(0.12);
+    this.tweens.add({ targets: this.flash, alpha: 0, duration: 180 });
+    this.game.events.emit(GameEvents.Message, {
+      title: `Missile Titan +${this.playerStats.missileRewardBones} os`,
+      body: 'Mine pulverisee. Sniky valide : trajectoire propre, combo sauve.',
+    });
+  }
+
+  private showMissileNotice(title: string, body: string): void {
+    if (this.missileNoticeCooldown > 0) {
+      return;
+    }
+
+    this.missileNoticeCooldown = 0.9;
+    this.game.events.emit(GameEvents.Message, { title, body });
+  }
+
+  private findMissileTarget(snap: PlayerSnapshot): WorldEntity | undefined {
+    const originX = snap.x + snap.w * 0.45;
+    const originY = snap.y + snap.h * 0.5;
+    const range = this.playerStats.missileRange;
+    const radius = this.playerStats.missileBlastRadius;
+
+    return this.chunk.entities
+      .filter((entity) => (
+        entity.type === 'mine' &&
+        !entity.hit &&
+        entity.x >= originX - 30 &&
+        entity.x <= originX + range &&
+        Math.abs(entity.y - originY) <= radius + 220
+      ))
+      .sort((a, b) => {
+        const ax = Math.abs(a.x - originX);
+        const bx = Math.abs(b.x - originX);
+        return ax - bx;
+      })[0];
   }
 
   private updateStats(): void {
@@ -879,11 +966,13 @@ export class RunScene extends Phaser.Scene {
 
     const nextDistance = Math.ceil(this.getNextGoalDistance());
     const nextLine = nextDistance > 0 ? `${this.getNextGoalLabel()} ${nextDistance}m` : 'Signal final';
-    this.hudText.setText(`${this.stats.distance.toFixed(1)} m\ncombo x${this.stats.combo}\n${nextLine}`);
+    const missileLine = this.getMissileHudLine();
+    this.hudText.setText(`${this.stats.distance.toFixed(1)} m\ncombo x${this.stats.combo}\n${nextLine}\n${missileLine}`);
   }
 
   private emitHud(): void {
     const snap = this.titan.getSnapshot();
+    const missileUnlocked = this.playerStats.missileLevel > 0;
     const hud: HudState = {
       distance: this.stats.distance,
       combo: this.stats.combo,
@@ -891,11 +980,21 @@ export class RunScene extends Phaser.Scene {
       jumpsLeft: snap.grounded ? this.playerStats.maxJumps : snap.jumpsLeft,
       maxJumps: this.playerStats.maxJumps,
       rocketPercent: clamp((snap.rocketFuel / this.playerStats.rocketMax) * 100, 0, 100),
+      missilePercent: missileUnlocked ? clamp((1 - this.missileCooldown / this.playerStats.missileCooldown) * 100, 0, 100) : 0,
+      missileUnlocked,
       nextGoalLabel: this.getNextGoalLabel(),
       nextGoalDistance: this.getNextGoalDistance(),
       storyEvents: this.stats.storyEvents,
     };
     this.game.events.emit(GameEvents.HudUpdate, hud);
+  }
+
+  private getMissileHudLine(): string {
+    if (this.playerStats.missileLevel <= 0) {
+      return 'missile verrouille';
+    }
+
+    return this.missileCooldown <= 0 ? 'missile pret E' : `missile ${Math.ceil(this.missileCooldown)}s`;
   }
 
   private getNextGoalLabel(): string {
@@ -918,6 +1017,7 @@ export class RunScene extends Phaser.Scene {
           `grounded: ${snap.grounded}`,
           `jumps left: ${snap.jumpsLeft}`,
           `rocket: ${snap.rocketFuel.toFixed(1)} / ${this.playerStats.rocketMax}`,
+          `missile: ${this.playerStats.missileLevel} / cd ${this.missileCooldown.toFixed(1)}`,
           `bounce: ${this.playerStats.bouncePower.toFixed(0)}`,
           `space: ${snap.spaceExposure.toFixed(2)} / suit ${this.playerStats.hasSpaceSuit}`,
           `story: ${this.stats.storyEvents}/${RUN_MILESTONES.length}`,
@@ -1021,6 +1121,36 @@ export class RunScene extends Phaser.Scene {
   private spawnRocketTrail(x: number, y: number, facing: number): void {
     for (let i = 0; i < 3; i += 1) {
       this.createParticle(x - facing * 46 + Math.random() * 16 - 8, y + Math.random() * 42 - 18, -facing * (230 + Math.random() * 260), -60 + Math.random() * 120, 0x7dff50, 0.32 + Math.random() * 0.22);
+    }
+  }
+
+  private spawnMissileShot(fromX: number, fromY: number, toX: number, toY: number): void {
+    const beam = this.add.line(0, 0, fromX, fromY, toX, toY, 0xffd36a, 0.88).setOrigin(0).setDepth(74);
+    const dx = toX - fromX;
+    const dy = toY - fromY;
+    const distance = Math.max(1, Math.hypot(dx, dy));
+    const nx = dx / distance;
+    const ny = dy / distance;
+
+    beam.setLineWidth(8, 3);
+    this.tweens.add({
+      targets: beam,
+      alpha: 0,
+      duration: 180,
+      onComplete: () => beam.destroy(),
+    });
+
+    for (let i = 0; i < 18; i += 1) {
+      const t = i / 17;
+      const spread = (Math.random() - 0.5) * 80;
+      this.createParticle(
+        fromX + dx * t + -ny * spread,
+        fromY + dy * t + nx * spread,
+        nx * (180 + Math.random() * 220) + -ny * spread * 2,
+        ny * (180 + Math.random() * 220) + nx * spread * 2,
+        i % 3 === 0 ? 0x8cfffb : 0xffd36a,
+        0.2 + Math.random() * 0.18,
+      );
     }
   }
 

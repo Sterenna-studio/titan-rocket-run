@@ -22,6 +22,8 @@ const ui = {
   timingText: byId('timingText'),
   rocketMeter: byId('rocketMeter') as HTMLMeterElement,
   rocketText: byId('rocketText'),
+  missileMeter: byId('missileMeter') as HTMLMeterElement,
+  missileText: byId('missileText'),
   resetSave: byId('resetSave') as ButtonEl,
   muteBtn: byId('muteBtn') as ButtonEl,
   overlay: byId('overlay'),
@@ -132,6 +134,8 @@ function updateHud(hud: HudState): void {
   ui.timingText.textContent = `${hud.jumpsLeft}/${hud.maxJumps}`;
   ui.rocketMeter.value = hud.rocketPercent;
   ui.rocketText.textContent = `${Math.round(hud.rocketPercent)}%`;
+  ui.missileMeter.value = hud.missilePercent;
+  ui.missileText.textContent = hud.missileUnlocked ? (hud.missilePercent >= 100 ? 'OK' : `${Math.round(hud.missilePercent)}%`) : 'LOCK';
 }
 
 function renderMessage(message: UiMessage): void {
@@ -200,6 +204,7 @@ function bindTouchControls(): void {
     d: 'd',
     space: 'space',
     shift: 'shift',
+    missile: 'missile',
     r: 'r',
   };
 

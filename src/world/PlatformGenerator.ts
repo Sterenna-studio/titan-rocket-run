@@ -21,15 +21,16 @@ export class PlatformGenerator {
     const gap = this.lerp(difficulty.minGap, difficulty.maxGap, this.random());
     const width = this.lerp(difficulty.minWidth, difficulty.maxWidth, this.random());
     const noise = this.noise2D(id * 0.23, 0.4);
+    const stepPressure = id > 5 && id % 4 === 0 ? 58 + difficulty.value * 80 : 0;
     const y = clamp(
-      previous.y + noise * difficulty.verticalRange + (this.random() - 0.5) * 125,
+      previous.y + noise * difficulty.verticalRange + (this.random() - 0.5) * 165,
       430,
       GROUND_Y - 56,
     );
 
     return {
       id,
-      x: previous.x + previous.w + gap,
+      x: previous.x + previous.w + gap + stepPressure,
       y,
       w: width,
       h: 34 + this.random() * 18,
@@ -54,12 +55,19 @@ export class PlatformGenerator {
       });
     }
 
-    if (platform.id > 1 && this.random() < difficulty.mineChance) {
+    const mineRolls = 1 + (difficulty.value > 0.42 && platform.w > 210 ? 1 : 0);
+    for (let i = 0; i < mineRolls; i += 1) {
+      const chance = i === 0 ? difficulty.mineChance : difficulty.mineChance * 0.46;
+      if (platform.id <= 1 || this.random() >= chance) {
+        continue;
+      }
+
+      const airborne = i > 0 || (difficulty.value > 0.68 && this.random() < 0.28);
       entities.push({
         type: 'mine',
-        x: platform.x + 80 + this.random() * Math.max(40, platform.w - 160),
-        y: platform.y - 30,
-        r: 24,
+        x: platform.x + 70 + this.random() * Math.max(40, platform.w - 140),
+        y: platform.y - (airborne ? 92 + this.random() * 86 : 30),
+        r: airborne ? 27 : 24,
         value: 0,
         bob: this.random() * Math.PI * 2,
       });

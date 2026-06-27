@@ -14,18 +14,18 @@ export interface DifficultyState {
 
 export class DifficultyCurve {
   sample(worldX: number): DifficultyState {
-    const value = clamp(worldX / 7600, 0, 1);
+    const value = clamp(worldX / 6200, 0, 1);
 
     return {
       value,
-      minGap: 112 + value * 32,
-      maxGap: 285 + value * 92,
-      minWidth: 210 - value * 35,
-      maxWidth: 560 - value * 120,
-      verticalRange: 265 + value * 210,
-      mineChance: 0.16 + value * 0.2,
-      boostChance: 0.15 + value * 0.04,
-      floatingBoneChance: 0.48 + value * 0.1,
+      minGap: 128 + value * 58,
+      maxGap: 325 + value * 150,
+      minWidth: 190 - value * 55,
+      maxWidth: 500 - value * 180,
+      verticalRange: 310 + value * 265,
+      mineChance: 0.23 + value * 0.3,
+      boostChance: Math.max(0.07, 0.14 - value * 0.03),
+      floatingBoneChance: 0.58 + value * 0.18,
     };
   }
 }

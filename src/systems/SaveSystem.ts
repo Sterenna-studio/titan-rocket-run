@@ -12,6 +12,7 @@ function createDefaultSave(): SaveData {
       ramp: 0,
       bounce: 0,
       rocket: 0,
+      missile: 0,
       cape: 0,
       start: 0,
       suit: 0,

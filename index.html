@@ -10,7 +10,7 @@
     <header class="topbar">
       <div>
         <h1>Titan Rocket Run</h1>
-        <p>Platformer runner : vise le timing parfait au depart, prends de l'elan, double-saute et booste a la rocket.</p>
+        <p>Platformer runner : vise le timing parfait au depart, prends de l'elan, double-saute, booste a la rocket et garde le missile pour les mines.</p>
       </div>
       <div class="records">
         <a class="assetLink" href="asset-browser.html">Assets</a>
@@ -27,7 +27,16 @@
           <kbd>A</kbd><kbd>D</kbd><span>se deplacer / garder l'elan</span>
           <kbd>Espace</kbd><span>charger le depart / sauter / double-sauter</span>
           <kbd>Shift</kbd><span>boost rocket en l'air</span>
+          <kbd>E</kbd><span>missile de Titan apres achat</span>
           <kbd>R</kbd><span>relancer</span>
+        </div>
+
+        <h2>Tuto de Sniky</h2>
+        <div class="tutorial">
+          <b>Sniky, maitre de Titan, aka le bg beau gosse de la street</b>
+          <p>Charge le depart dans le vert, puis pense en trois temps : vitesse, angle, securite.</p>
+          <p>Les mines coupent le combo. Quand le missile est debloque, garde-le pour ouvrir la trajectoire avant une plateforme serree.</p>
+          <p>Les upgrades coutent cher : ramasser les os flottants et toucher les signaux compte plus qu'avant.</p>
         </div>
 
         <h2>Boutique</h2>
@@ -42,6 +51,7 @@
           <div><label>Vitesse</label><meter id="speedMeter" min="0" max="100" value="0"></meter><span id="speedText">0%</span></div>
           <div><label>Sauts</label><meter id="timingMeter" min="0" max="100" value="0"></meter><span id="timingText">-</span></div>
           <div><label>Rocket</label><meter id="rocketMeter" min="0" max="100" value="0"></meter><span id="rocketText">0%</span></div>
+          <div><label>Missile</label><meter id="missileMeter" min="0" max="100" value="0"></meter><span id="missileText">LOCK</span></div>
         </div>
         <div id="message" class="message"><b>Pret ?</b><br>Maintiens Espace, relache dans la zone verte, puis gere le crash d'atterrissage.</div>
 
@@ -53,6 +63,7 @@
           <div class="touchActions" aria-label="Actions">
             <button type="button" class="touchBtn touchJump" data-key="space">Saut</button>
             <button type="button" class="touchBtn touchRocket" data-key="shift">Rocket</button>
+            <button type="button" class="touchBtn touchMissile" data-key="missile">Missile</button>
             <button type="button" class="touchBtn touchRetry" data-key="r">R</button>
           </div>
         </div>
@@ -65,6 +76,7 @@
               <span><kbd>A</kbd><kbd>D</kbd> se deplacer / garder l'elan</span>
               <span><kbd>Espace</kbd> charger / sauter / double-sauter</span>
               <span><kbd>Shift</kbd> boost rocket</span>
+              <span><kbd>E</kbd> missile debloque</span>
               <span><kbd>R</kbd> relancer</span>
             </div>
             <button id="playBtn" class="cta" type="button">Jouer</button>
