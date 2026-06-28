@@ -99,6 +99,7 @@ export class RunScene extends Phaser.Scene {
   private missileCooldown = 0;
   private missileNoticeCooldown = 0;
   private nextOverdriveCombo = 6;
+  private stallTimer = 0;
   private launchCharging = true;
   private launchCharge = 0;
   private launchDirection = 1;
@@ -127,6 +128,7 @@ export class RunScene extends Phaser.Scene {
     this.missileCooldown = 0;
     this.missileNoticeCooldown = 0;
     this.nextOverdriveCombo = 6;
+    this.stallTimer = 0;
     this.ended = false;
     this.particles = [];
     this.missiles = [];
@@ -218,6 +220,7 @@ export class RunScene extends Phaser.Scene {
 
     const input = this.getInputState();
     if (this.launchCharging) {
+      this.stallTimer = 0;
       this.updateLaunch(dt, input);
       this.updateCamera(dt);
       this.updateBackground();
@@ -247,27 +250,6 @@ export class RunScene extends Phaser.Scene {
       this.handleLandingImpact(snap, result.impactSpeed);
     }
 
-    const groundImpact = this.titan.crashIntoGround(CRASH_GROUND_Y);
-    if (groundImpact > 0) {
-      snap = this.titan.getSnapshot();
-      this.stats.landed += 1;
-      this.stats.combo = 0;
-      this.nextOverdriveCombo = 6;
-      this.handleLandingImpact(snap, groundImpact, true);
-      this.updateStats();
-      this.updateCamera(dt);
-      this.updateBackground();
-      this.updateMissiles(dt);
-      this.updateParticles(dt);
-      this.updateImpactMarks(dt);
-      this.drawPlatforms();
-      this.updateHudText();
-      this.updateDebug();
-      this.emitHud();
-      this.finishRun('fall', 720);
-      return;
-    }
-
     if (result.bounceUsed) {
       soundSystem.bounce();
       this.spawnBurst(snap.x, snap.y + snap.h, 18, 0x8cfffb);
@@ -286,6 +268,9 @@ export class RunScene extends Phaser.Scene {
     this.updateMissiles(dt);
     this.handleEntities();
     this.updateStats();
+    if (this.handleStall(dt)) {
+      return;
+    }
     this.handleMilestones();
     this.updateCamera(dt);
     this.updateBackground();
@@ -711,6 +696,21 @@ export class RunScene extends Phaser.Scene {
     this.stats.maxSpeed = Math.max(this.stats.maxSpeed, Math.abs(snap.vx));
   }
 
+  private handleStall(dt: number): boolean {
+    const snap = this.titan.getSnapshot();
+    const stopped = snap.grounded && this.stats.distance > 2.5 && Math.abs(snap.vx) < 24 && Math.abs(snap.vy) < 8;
+    this.stallTimer = stopped ? this.stallTimer + dt : 0;
+
+    if (this.stallTimer < 1.1) {
+      return false;
+    }
+
+    this.stats.combo = 0;
+    this.nextOverdriveCombo = 6;
+    this.finishRun('stalled', 480);
+    return true;
+  }
+
   private handleMilestones(): void {
     for (const milestone of RUN_MILESTONES) {
       if (this.reachedMilestones.has(milestone.id) || this.stats.distance < milestone.distance) {
@@ -956,15 +956,54 @@ export class RunScene extends Phaser.Scene {
     this.drawGround();
     this.platformGraphics.clear();
     for (const platform of this.chunk.platforms) {
-      const color = platform.kind === 'boost' ? COLORS.boost : platform.kind === 'start' ? 0x26321b : this.getBiomePlatformColor(platform.x);
-      const accent = platform.kind === 'boost' ? COLORS.green : platform.kind === 'start' ? 0xffd36a : this.getBiomeAccentColor(platform.x);
+      const color =
+        platform.kind === 'boost'
+          ? COLORS.boost
+          : platform.kind === 'path'
+            ? 0x14351e
+            : platform.kind === 'ramp'
+              ? 0x342913
+              : platform.kind === 'start'
+                ? 0x26321b
+                : this.getBiomePlatformColor(platform.x);
+      const accent =
+        platform.kind === 'boost'
+          ? COLORS.green
+          : platform.kind === 'path'
+            ? 0x8cfffb
+            : platform.kind === 'ramp'
+              ? 0xffd36a
+              : platform.kind === 'start'
+                ? 0xffd36a
+                : this.getBiomeAccentColor(platform.x);
       this.platformGraphics.fillStyle(color, 1);
+      if (platform.kind === 'ramp') {
+        this.platformGraphics.fillStyle(0x0d150f, 0.78);
+        this.platformGraphics.fillRoundedRect(platform.x, platform.y + platform.h * 0.45, platform.w, platform.h * 0.55, 10);
+        this.platformGraphics.fillStyle(color, 1);
+        this.platformGraphics.fillTriangle(platform.x, platform.y + platform.h, platform.x + platform.w, platform.y, platform.x + platform.w, platform.y + platform.h);
+        this.platformGraphics.lineStyle(4, accent, 0.78);
+        this.platformGraphics.lineBetween(platform.x + 8, platform.y + platform.h - 5, platform.x + platform.w - 8, platform.y + 4);
+        for (let x = platform.x + 42; x < platform.x + platform.w - 24; x += 62) {
+          this.platformGraphics.lineStyle(2, 0x0d150f, 0.36);
+          this.platformGraphics.lineBetween(x, platform.y + platform.h - 8, x + 24, platform.y + platform.h - 22);
+        }
+        continue;
+      }
+
       this.platformGraphics.fillRoundedRect(platform.x, platform.y, platform.w, platform.h, 12);
       this.platformGraphics.lineStyle(platform.kind === 'boost' ? 4 : 3, accent, platform.kind === 'boost' ? 0.75 : 0.42);
       this.platformGraphics.strokeRoundedRect(platform.x, platform.y, platform.w, platform.h, 12);
       if (platform.kind === 'start') {
         this.platformGraphics.fillStyle(0xffd36a, 0.16);
         this.platformGraphics.fillRoundedRect(platform.x + 24, platform.y + 10, platform.w - 48, 8, 4);
+      } else if (platform.kind === 'path') {
+        this.platformGraphics.lineStyle(2, 0x071009, 0.42);
+        this.platformGraphics.lineBetween(platform.x + 18, platform.y + platform.h * 0.5, platform.x + platform.w - 18, platform.y + platform.h * 0.5);
+        this.platformGraphics.lineStyle(2, accent, 0.35);
+        for (let x = platform.x + 34; x < platform.x + platform.w - 32; x += 76) {
+          this.platformGraphics.lineBetween(x, platform.y + 7, x + 30, platform.y + 7);
+        }
       }
     }
     this.drawImpactMarks();
@@ -1390,13 +1429,22 @@ export class RunScene extends Phaser.Scene {
     }
 
     this.ended = true;
-    this.titan.knockOut();
-    soundSystem.finish();
     const finishReason: RunSummary['finishReason'] = forcedReason ?? (this.titan.isLostInSpace() ? 'space' : 'fall');
+    if (finishReason === 'stalled') {
+      this.titan.stop();
+    } else {
+      this.titan.knockOut();
+    }
+    soundSystem.finish();
     if (finishReason === 'space') {
       this.game.events.emit(GameEvents.Message, {
         title: "Perdu dans l'espace",
         body: 'La tenue cosmonaute protege Titan quand la gravite devient trop faible.',
+      });
+    } else if (finishReason === 'stalled') {
+      this.game.events.emit(GameEvents.Message, {
+        title: 'Titan a cale',
+        body: "Plus assez de vitesse : relance plus fort, prends une rampe ou garde l'elan avec la rocket.",
       });
     }
     const summary: RunSummary = saveSystem.recordRun(this.stats, this.seed, finishReason);

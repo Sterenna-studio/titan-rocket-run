@@ -146,7 +146,13 @@ function showResult(summary: RunSummary): void {
   ui.resHits.textContent = `${summary.hits}`;
   ui.resReward.textContent = `+${summary.reward}`;
   ui.resTitle.textContent =
-    summary.finishReason === 'space' ? "Perdu dans l'espace" : summary.isRecord ? 'Nouveau record !' : 'Run termine';
+    summary.finishReason === 'space'
+      ? "Perdu dans l'espace"
+      : summary.finishReason === 'stalled'
+        ? 'Titan a cale'
+        : summary.isRecord
+          ? 'Nouveau record !'
+          : 'Run termine';
   const badge = summary.storyEvents > 0 ? `${summary.badge || 'Route decouverte'} - ${summary.storyEvents} signal(s)` : summary.badge;
   ui.resBadge.textContent = badge;
   ui.resBadge.classList.toggle('hidden', !badge);

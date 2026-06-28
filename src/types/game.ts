@@ -1,6 +1,6 @@
 export type UpgradeId = 'shoes' | 'ramp' | 'bounce' | 'rocket' | 'missile' | 'cape' | 'start' | 'suit';
 
-export type PlatformKind = 'start' | 'normal' | 'boost';
+export type PlatformKind = 'start' | 'normal' | 'boost' | 'ramp' | 'path';
 
 export type EntityKind = 'bone' | 'mine';
 
@@ -130,7 +130,7 @@ export interface RunSummary extends RunStats {
   isRecord: boolean;
   badge: string;
   seed: string;
-  finishReason: 'fall' | 'space';
+  finishReason: 'fall' | 'space' | 'stalled';
 }
 
 export interface LeaderboardEntry {

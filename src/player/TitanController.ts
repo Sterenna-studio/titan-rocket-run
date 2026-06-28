@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import {
+  CRASH_GROUND_Y,
   DEATH_Y,
   GRAVITY,
   LAUNCH_MAX_VX,
@@ -82,6 +83,9 @@ export class TitanController {
 
     if (!input.left && !input.right && this.state.grounded) {
       this.state.vx *= Math.pow(0.82, dt * 10);
+      if (Math.abs(this.state.vx) < 9) {
+        this.state.vx = 0;
+      }
     } else if (!this.state.grounded) {
       this.state.vx *= 1 - this.stats.airDrag * dt;
     }
@@ -214,6 +218,16 @@ export class TitanController {
     this.play('knockout', true);
   }
 
+  stop(): void {
+    this.state.vx = 0;
+    this.state.vy = 0;
+    this.state.grounded = true;
+    this.state.coyote = 0;
+    this.rotation = 0;
+    this.play('idle', true);
+    this.syncSprite();
+  }
+
   crashIntoGround(groundY: number): number {
     const bottom = this.state.y + this.state.h;
     if (this.state.vy <= 0 || bottom < groundY) {
@@ -278,27 +292,50 @@ export class TitanController {
 
   private collidePlatforms(prevY: number, platforms: PlatformData[], wasGrounded: boolean): { landed: boolean; boostPad: boolean } {
     this.state.grounded = false;
+    const prevBottom = prevY + this.state.h;
+    const bottom = this.state.y + this.state.h;
 
     for (const platform of platforms) {
       const over =
         this.state.x + this.state.w * 0.42 > platform.x &&
         this.state.x - this.state.w * 0.42 < platform.x + platform.w;
-      const prevBottom = prevY + this.state.h;
-      const bottom = this.state.y + this.state.h;
 
       if (over && this.state.vy >= 0 && prevBottom <= platform.y + 14 && bottom >= platform.y && bottom <= platform.y + 70) {
         this.state.y = platform.y - this.state.h;
-        this.state.vy = 0;
         this.state.grounded = true;
         this.state.jumpsLeft = Math.max(0, this.stats.maxJumps - 1);
         this.rotation = 0;
         this.state.coyote = 0.09;
+        if (platform.kind === 'ramp') {
+          const direction = this.state.vx < -80 ? -1 : this.state.vx > 80 ? 1 : this.facing;
+          this.state.vx += direction * (280 + clamp(Math.abs(this.state.vx) * 0.1, 0, 180));
+          this.state.vy = -(190 + clamp(Math.abs(this.state.vx) * 0.08, 0, 190));
+          this.state.grounded = false;
+          this.state.coyote = 0;
+        } else {
+          this.state.vy = 0;
+        }
 
         return {
           landed: !wasGrounded,
-          boostPad: platform.kind === 'boost',
+          boostPad: platform.kind === 'boost' || platform.kind === 'ramp',
         };
       }
+    }
+
+    if (this.state.vy >= 0 && bottom >= CRASH_GROUND_Y) {
+      this.state.y = CRASH_GROUND_Y - this.state.h;
+      this.state.vy = 0;
+      this.state.vx *= 0.72;
+      this.state.grounded = true;
+      this.state.jumpsLeft = Math.max(0, this.stats.maxJumps - 1);
+      this.rotation = 0;
+      this.state.coyote = 0.09;
+
+      return {
+        landed: !wasGrounded,
+        boostPad: false,
+      };
     }
 
     return { landed: false, boostPad: false };

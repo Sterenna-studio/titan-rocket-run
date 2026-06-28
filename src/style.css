@@ -47,7 +47,7 @@ p { margin: 5px 0 0; color: var(--muted); }
 }
 .layout {
   display: grid;
-  grid-template-columns: clamp(300px, 21vw, 380px) minmax(0, 1fr);
+  grid-template-columns: clamp(270px, 18vw, 340px) minmax(0, 1fr) clamp(240px, 16vw, 320px);
   gap: clamp(10px, 1.1vw, 18px);
   margin-top: clamp(10px, 1.1vw, 18px);
   align-items: start;
@@ -56,13 +56,20 @@ p { margin: 5px 0 0; color: var(--muted); }
   background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
   padding: 12px;
 }
-.sidePanel {
+.sidePanel,
+.rankPanel {
   position: sticky;
   top: var(--page-pad);
   max-height: calc(100dvh - var(--page-pad) - var(--page-pad));
   overflow: auto;
   scrollbar-width: thin;
 }
+.sidePanel {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+}
+.rankPanel .leaderboardPanel { margin-bottom: 0; }
 .panel h2 { margin: 10px 0 8px; font-size: 17px; letter-spacing: 0; }
 .controls {
   display: grid;
@@ -374,7 +381,7 @@ meter { width: calc(100% - 46px); height: 14px; vertical-align: middle; }
 }
 
 @media (min-width: 1600px) {
-  .layout { grid-template-columns: minmax(340px, 400px) minmax(0, 1fr); }
+  .layout { grid-template-columns: minmax(310px, 380px) minmax(0, 1fr) minmax(260px, 340px); }
   .gameShell { max-height: calc(100dvh - 104px); }
   .hud { left: 22px; right: 22px; top: 18px; }
   .message { bottom: 26px; }
@@ -382,6 +389,15 @@ meter { width: calc(100% - 46px); height: 14px; vertical-align: middle; }
 
 @media (max-width: 1280px) {
   .layout { grid-template-columns: 292px minmax(0, 1fr); }
+  .rankPanel {
+    grid-column: 1 / -1;
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+  .rankPanel .leaderboard {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .topbar { align-items: flex-start; }
   .topbar p { max-width: 680px; }
   .leaderboard li { grid-template-columns: 22px 50px 1fr; }
@@ -392,11 +408,13 @@ meter { width: calc(100% - 46px); height: 14px; vertical-align: middle; }
 @media (max-width: 980px) {
   .layout { grid-template-columns: 1fr; }
   .gameShell { order: -1; max-height: none; }
-  .sidePanel {
+  .sidePanel,
+  .rankPanel {
     position: static;
     max-height: none;
     overflow: visible;
   }
+  .rankPanel .leaderboard { grid-template-columns: 1fr; }
   .hud { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .topbar { flex-direction: column; }
   .records { justify-content: flex-start; }
@@ -449,7 +467,7 @@ meter { width: calc(100% - 46px); height: 14px; vertical-align: middle; }
   }
   .layout {
     min-height: 0;
-    grid-template-columns: minmax(206px, 28vw) minmax(0, 1fr);
+    grid-template-columns: minmax(188px, 24vw) minmax(0, 1fr) minmax(150px, 20vw);
     gap: 7px;
     margin-top: 7px;
   }
@@ -459,8 +477,10 @@ meter { width: calc(100% - 46px); height: 14px; vertical-align: middle; }
     max-height: none;
     aspect-ratio: auto;
   }
-  .sidePanel {
+  .sidePanel,
+  .rankPanel {
     order: 0;
+    grid-column: auto;
     position: static;
     max-height: 100%;
     overflow: auto;
@@ -476,13 +496,22 @@ meter { width: calc(100% - 46px); height: 14px; vertical-align: middle; }
   .item small {
     font-size: 12px;
   }
-  .leaderboard { gap: 4px; }
+  .leaderboard {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
   .leaderboard li {
-    grid-template-columns: 18px 44px 1fr;
+    grid-template-columns: 18px minmax(38px, 44px) minmax(0, 1fr);
     gap: 5px;
     padding: 5px 6px;
     font-size: 12px;
   }
+  .rankPanel .leaderboardHeader {
+    display: grid;
+    gap: 2px;
+    margin-bottom: 6px;
+  }
+  .rankPanel .leaderboardScore { font-size: 11px; }
   .hud {
     left: 8px;
     right: 8px;
@@ -542,6 +571,7 @@ meter { width: calc(100% - 46px); height: 14px; vertical-align: middle; }
   }
   .message b { font-size: 15px; }
   .sidePanel { padding: 10px; }
+  .rankPanel { padding: 10px; }
   .controls {
     grid-template-columns: repeat(2, minmax(32px, auto)) minmax(0, 1fr);
     font-size: 13px;
