@@ -1168,27 +1168,76 @@ export class RunScene extends Phaser.Scene {
       this.createParticle(x - facing * 46 + Math.random() * 16 - 8, y + Math.random() * 42 - 18, -facing * (230 + Math.random() * 260), -60 + Math.random() * 120, 0x7dff50, 0.32 + Math.random() * 0.22);
     }
 
-    if (this.rocketVisualCooldown > 0 || !this.textures.exists('titan-rocket-projectile')) {
+    if (this.rocketVisualCooldown > 0) {
       return;
     }
 
     this.rocketVisualCooldown = 0.1;
-    const rocket = this.add
-      .image(x - facing * 82, y + Math.random() * 16 - 8, 'titan-rocket-projectile')
-      .setDepth(19)
-      .setScale(0.36)
-      .setAlpha(0.76)
-      .setFlipX(facing < 0);
+    this.spawnBoostWake(x, y, facing);
+  }
 
+  private spawnBoostWake(x: number, y: number, facing: number): void {
+    const flameX = x - facing * 68;
+    const flame = this.add
+      .triangle(
+        flameX,
+        y + Math.random() * 16 - 8,
+        -facing * 44,
+        0,
+        facing * 12,
+        -20,
+        facing * 12,
+        20,
+        0xffd36a,
+        0.66,
+      )
+      .setDepth(19);
     this.tweens.add({
-      targets: rocket,
-      x: rocket.x - facing * 74,
-      y: rocket.y + Math.random() * 18 - 9,
+      targets: flame,
+      x: flame.x - facing * 52,
       alpha: 0,
-      scale: 0.2,
-      duration: 220,
-      onComplete: () => rocket.destroy(),
+      scaleX: 0.42,
+      scaleY: 0.7,
+      duration: 170,
+      onComplete: () => flame.destroy(),
     });
+
+    const distortion = this.add
+      .ellipse(x - facing * 12, y, 118, 70)
+      .setDepth(21)
+      .setStrokeStyle(3, 0x8cfffb, 0.2)
+      .setFillStyle(0x8cfffb, 0.018);
+    this.tweens.add({
+      targets: distortion,
+      x: distortion.x - facing * 26,
+      alpha: 0,
+      scaleX: 1.25,
+      scaleY: 0.74,
+      duration: 180,
+      onComplete: () => distortion.destroy(),
+    });
+
+    for (let i = 0; i < 3; i += 1) {
+      const line = this.add
+        .rectangle(
+          x - facing * (82 + Math.random() * 90),
+          y + Math.random() * 90 - 45,
+          60 + Math.random() * 46,
+          3,
+          i === 0 ? 0xecfff0 : 0x8cfffb,
+          0.32,
+        )
+        .setDepth(22)
+        .setRotation((Math.random() - 0.5) * 0.12);
+      this.tweens.add({
+        targets: line,
+        x: line.x - facing * (90 + Math.random() * 60),
+        alpha: 0,
+        scaleX: 1.35,
+        duration: 170 + Math.random() * 80,
+        onComplete: () => line.destroy(),
+      });
+    }
   }
 
   private createParticle(x: number, y: number, vx: number, vy: number, color: number, life: number): void {

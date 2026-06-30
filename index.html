@@ -46,80 +46,83 @@
         <button id="resetSave" class="danger" type="button">Reset sauvegarde</button>
       </aside>
 
-      <section class="gameShell">
-        <div id="game-root" aria-label="Titan Rocket Run"></div>
-        <div class="orientationHint" aria-hidden="true">Paysage recommande - portrait jouable</div>
-        <div class="hud">
-          <div><label>Vitesse</label><meter id="speedMeter" min="0" max="100" value="0"></meter><span id="speedText">0%</span></div>
-          <div><label>Sauts</label><meter id="timingMeter" min="0" max="100" value="0"></meter><span id="timingText">-</span></div>
-          <div><label>Rocket</label><meter id="rocketMeter" min="0" max="100" value="0"></meter><span id="rocketText">0%</span></div>
-        </div>
-        <div id="message" class="message"><b>Pret ?</b><br>Maintiens Espace, relache dans la zone verte, puis gere le crash d'atterrissage.</div>
-
-        <div class="touchControls" aria-label="Controles tactiles">
-          <div class="touchRun" aria-label="Spam course">
-            <button type="button" class="touchBtn touchStride" data-key="strideLeft">Patte G</button>
-            <button type="button" class="touchBtn touchStride" data-key="strideRight">Patte D</button>
+      <section class="gameColumn">
+        <div class="gameShell">
+          <div id="game-root" aria-label="Titan Rocket Run"></div>
+          <div class="orientationHint" aria-hidden="true">Paysage recommande - portrait jouable</div>
+          <div class="hud">
+            <div><label>Vitesse</label><meter id="speedMeter" min="0" max="100" value="0"></meter><span id="speedText">0%</span></div>
+            <div><label>Sauts</label><meter id="timingMeter" min="0" max="100" value="0"></meter><span id="timingText">-</span></div>
+            <div><label>Rocket</label><meter id="rocketMeter" min="0" max="100" value="0"></meter><span id="rocketText">0%</span></div>
           </div>
-          <div class="touchActions" aria-label="Actions">
-            <button type="button" class="touchBtn touchJump" data-key="space">Saut</button>
-            <button type="button" class="touchBtn touchRocket" data-key="shift">Rocket</button>
-            <button type="button" class="touchBtn touchRetry" data-key="r">R</button>
-          </div>
-        </div>
 
-        <div id="snikyIntro" class="snikyIntro hidden" role="dialog" aria-modal="true" aria-labelledby="snikyIntroTitle">
-          <div class="snikyCard">
-            <p class="eyebrow">Tuto de Sniky</p>
-            <h2 id="snikyIntroTitle">Titan court mieux quand il ne s'arrete pas machouiller.</h2>
-            <p>Charge le depart dans le vert, vise les os et les signaux, puis quitte vite le sol. Sur tactile, spam Patte G / Patte D pour relancer Titan. Les rares cables et telecommandes en bas donnent envie a Titan de s'arreter : au sol, sa vitesse fond de 10% par metre.</p>
-            <div class="snikyActions">
-              <button id="snikyClose" class="cta" type="button">Compris</button>
-              <button id="snikySkipForever" class="ghostBtn" type="button">Passer pour toujours</button>
+          <div class="touchControls" aria-label="Controles tactiles">
+            <div class="touchRun" aria-label="Spam course">
+              <button type="button" class="touchBtn touchStride" data-key="strideLeft">Patte G</button>
+              <button type="button" class="touchBtn touchStride" data-key="strideRight">Patte D</button>
+            </div>
+            <div class="touchActions" aria-label="Actions">
+              <button type="button" class="touchBtn touchJump" data-key="space">Saut</button>
+              <button type="button" class="touchBtn touchRocket" data-key="shift">Rocket</button>
+              <button type="button" class="touchBtn touchRetry" data-key="r">R</button>
             </div>
           </div>
-        </div>
 
-        <div id="overlay" class="overlay">
-          <div id="titleScreen" class="card">
-            <h2 class="bigTitle">Titan Rocket Run</h2>
-            <p class="lead">Un runner-platformer nerveux : cale le depart dans la zone verte, garde la vitesse, ramasse les os et evite de trainer au sol.</p>
-            <div class="ctrlGrid">
-              <span><kbd>A</kbd><kbd>D</kbd> se deplacer / garder l'elan</span>
-              <span><kbd>Patte G</kbd><kbd>Patte D</kbd> spam course tactile</span>
-              <span><kbd>Espace</kbd> charger / sauter / double-sauter</span>
-              <span><kbd>Shift</kbd> boost rocket</span>
-              <span><kbd>R</kbd> relancer</span>
-            </div>
-            <button id="playBtn" class="cta" type="button">Jouer</button>
-          </div>
-
-          <div id="resultScreen" class="card hidden">
-            <h2 id="resTitle">Run termine</h2>
-            <div class="stats">
-              <div class="stat score"><b id="resScore">0</b><label>Score arcade</label></div>
-              <div class="stat"><b id="resDist">0 m</b><label>Distance</label></div>
-              <div class="stat"><b id="resSpeed">0</b><label>Vitesse max</label></div>
-              <div class="stat"><b id="resJump">0</b><label>Sauts</label></div>
-              <div class="stat"><b id="resBones">0</b><label>Os ramasses</label></div>
-              <div class="stat"><b id="resLandings">0</b><label>Atterrissages</label></div>
-              <div class="stat"><b id="resOverdrives">0</b><label>Overdrives</label></div>
-              <div class="stat"><b id="resSignals">0</b><label>Signaux</label></div>
-              <div class="stat reward"><b id="resReward">+0</b><label>Os gagnes</label></div>
-            </div>
-            <p id="resBadge" class="badge hidden"></p>
-            <form id="scoreForm" class="scoreForm hidden">
-              <label for="scoreName">Initiales</label>
-              <div>
-                <input id="scoreName" maxlength="5" minlength="5" pattern="[A-Za-z]{5}" autocomplete="off" spellcheck="false" value="TITAN" aria-label="Initiales arcade 5 lettres" />
-                <button id="scoreSubmit" type="submit">Inscrire</button>
+          <div id="snikyIntro" class="snikyIntro hidden" role="dialog" aria-modal="true" aria-labelledby="snikyIntroTitle">
+            <div class="snikyCard">
+              <p class="eyebrow">Tuto de Sniky</p>
+              <h2 id="snikyIntroTitle">Titan court mieux quand il ne s'arrete pas machouiller.</h2>
+              <p>Charge le depart dans le vert, vise les os et les signaux, puis quitte vite le sol. Sur tactile, spam Patte G / Patte D pour relancer Titan. Les rares cables et telecommandes en bas donnent envie a Titan de s'arreter : au sol, sa vitesse fond de 10% par metre.</p>
+              <div class="snikyActions">
+                <button id="snikyClose" class="cta" type="button">Compris</button>
+                <button id="snikySkipForever" class="ghostBtn" type="button">Passer pour toujours</button>
               </div>
-            </form>
-            <div class="resButtons">
-              <button id="retryBtn" class="cta" type="button">Rejouer (R)</button>
+            </div>
+          </div>
+
+          <div id="overlay" class="overlay">
+            <div id="titleScreen" class="card">
+              <h2 class="bigTitle">Titan Rocket Run</h2>
+              <p class="lead">Un runner-platformer nerveux : cale le depart dans la zone verte, garde la vitesse, ramasse les os et evite de trainer au sol.</p>
+              <div class="ctrlGrid">
+                <span><kbd>A</kbd><kbd>D</kbd> se deplacer / garder l'elan</span>
+                <span><kbd>Patte G</kbd><kbd>Patte D</kbd> spam course tactile</span>
+                <span><kbd>Espace</kbd> charger / sauter / double-sauter</span>
+                <span><kbd>Shift</kbd> boost rocket</span>
+                <span><kbd>R</kbd> relancer</span>
+              </div>
+              <button id="playBtn" class="cta" type="button">Jouer</button>
+            </div>
+
+            <div id="resultScreen" class="card hidden">
+              <h2 id="resTitle">Run termine</h2>
+              <div class="stats">
+                <div class="stat score"><b id="resScore">0</b><label>Score arcade</label></div>
+                <div class="stat"><b id="resDist">0 m</b><label>Distance</label></div>
+                <div class="stat"><b id="resSpeed">0</b><label>Vitesse max</label></div>
+                <div class="stat"><b id="resJump">0</b><label>Sauts</label></div>
+                <div class="stat"><b id="resBones">0</b><label>Os ramasses</label></div>
+                <div class="stat"><b id="resLandings">0</b><label>Atterrissages</label></div>
+                <div class="stat"><b id="resOverdrives">0</b><label>Overdrives</label></div>
+                <div class="stat"><b id="resSignals">0</b><label>Signaux</label></div>
+                <div class="stat reward"><b id="resReward">+0</b><label>Os gagnes</label></div>
+              </div>
+              <p id="resBadge" class="badge hidden"></p>
+              <form id="scoreForm" class="scoreForm hidden">
+                <label for="scoreName">Initiales</label>
+                <div>
+                  <input id="scoreName" maxlength="5" minlength="5" pattern="[A-Za-z]{5}" autocomplete="off" spellcheck="false" value="TITAN" aria-label="Initiales arcade 5 lettres" />
+                  <button id="scoreSubmit" type="submit">Inscrire</button>
+                </div>
+              </form>
+              <div class="resButtons">
+                <button id="retryBtn" class="cta" type="button">Rejouer (R)</button>
+              </div>
             </div>
           </div>
         </div>
+
+        <div id="message" class="message"><b>Pret ?</b><br>Maintiens Espace, relache dans la zone verte, puis gere le crash d'atterrissage.</div>
       </section>
 
       <aside class="panel rankPanel">

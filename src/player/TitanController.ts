@@ -134,7 +134,7 @@ export class TitanController {
       this.setCoyote(Math.max(0, this.state.coyote - dt));
     }
 
-    this.pickAnimation(rocketUsed);
+    this.pickAnimation();
     this.syncSprite();
 
     return {
@@ -388,7 +388,7 @@ export class TitanController {
     this.state.spaceExposure = Math.max(0, this.state.spaceExposure - dt * 2);
   }
 
-  private pickAnimation(rocketUsed: boolean): void {
+  private pickAnimation(): void {
     if (this.state.hurt > 0) {
       this.play('hurt');
       return;
@@ -396,7 +396,7 @@ export class TitanController {
 
     if (!this.state.grounded) {
       this.rotation = clamp(this.state.vy / 1400, -0.2, 0.42);
-      this.play(rocketUsed ? 'bark_energy_blast' : 'jump');
+      this.play('jump');
       return;
     }
 
