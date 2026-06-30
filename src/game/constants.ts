@@ -23,6 +23,7 @@ export const LAUNCH_MIN_VX = 420;
 export const LAUNCH_MAX_VX = 3600;
 export const LAUNCH_MIN_VY = 560;
 export const LAUNCH_MAX_VY = 1120;
+export const GROUND_SPEED_RETAIN_PER_METER = 0.9;
 
 export const PLAYER_WIDTH = 62;
 export const PLAYER_HEIGHT = 126;
@@ -48,8 +49,8 @@ export const UPGRADE_DEFINITIONS: Record<UpgradeId, UpgradeDefinition> = {
   shoes: { name: 'Chaussures', desc: "Acceleration et vitesse au sol.", base: 120, max: 8 },
   ramp: { name: 'Bottes double saut', desc: 'Air-jumps plus hauts et plus nombreux.', base: 170, max: 8 },
   bounce: { name: 'Bottes rebondissantes', desc: 'Maintiens saut en atterrissant pour rebondir.', base: 180, max: 8 },
-  rocket: { name: 'Rocket', desc: 'Boost horizontal avec Shift.', base: 220, max: 8 },
-  missile: { name: 'Missile Titan', desc: 'Debloque E / bouton Missile pour detruire les mines.', base: 700, max: 5 },
+  rocket: { name: 'Rocket', desc: 'Boost horizontal avec Shift et trainee visuelle Titan.', base: 220, max: 8 },
+  missile: { name: 'Missile archive', desc: 'Ancien upgrade conserve pour compatibilite de sauvegarde.', base: 700, max: 0 },
   cape: { name: 'Cape aero', desc: "Meilleur controle en l'air.", base: 160, max: 8 },
   start: { name: 'Elan de depart', desc: 'Vitesse initiale augmentee.', base: 110, max: 8 },
   suit: { name: 'Tenue cosmonaute', desc: "Survie dans l'espace.", base: 950, max: 1 },

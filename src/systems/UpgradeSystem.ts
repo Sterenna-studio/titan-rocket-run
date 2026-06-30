@@ -3,6 +3,7 @@ import type { PlayerStats, SaveData, UpgradeId, UpgradeShopItem } from '../types
 import { saveSystem, type SaveSystem } from './SaveSystem';
 
 const upgradeIds = Object.keys(UPGRADE_DEFINITIONS) as UpgradeId[];
+const shopUpgradeIds = upgradeIds.filter((id) => id !== 'missile');
 const COST_GROWTH = 2.15;
 
 export class UpgradeSystem {
@@ -11,7 +12,7 @@ export class UpgradeSystem {
   getShopItems(): UpgradeShopItem[] {
     const save = this.saves.getSnapshot();
 
-    return upgradeIds.map((id) => {
+    return shopUpgradeIds.map((id) => {
       const definition = UPGRADE_DEFINITIONS[id];
       const level = save.upgrades[id] ?? 0;
       const cost = this.getCost(id, save);
@@ -52,11 +53,6 @@ export class UpgradeSystem {
       gravityScale: 1 - level('cape') * 0.018,
       rocketPush: 1120 + level('rocket') * 115,
       rocketLift: 80 + level('rocket') * 10,
-      missileLevel: level('missile'),
-      missileRange: 640 + level('missile') * 155,
-      missileCooldown: Math.max(2.2, 5.4 - level('missile') * 0.55),
-      missileBlastRadius: 92 + level('missile') * 28,
-      missileRewardBones: 8 + level('missile') * 5,
     };
   }
 

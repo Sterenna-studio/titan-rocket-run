@@ -2,7 +2,7 @@ export type UpgradeId = 'shoes' | 'ramp' | 'bounce' | 'rocket' | 'missile' | 'ca
 
 export type PlatformKind = 'start' | 'normal' | 'boost' | 'ramp' | 'path';
 
-export type EntityKind = 'bone' | 'mine';
+export type EntityKind = 'bone';
 
 export interface UpgradeDefinition {
   name: string;
@@ -41,18 +41,12 @@ export interface PlayerStats {
   gravityScale: number;
   rocketPush: number;
   rocketLift: number;
-  missileLevel: number;
-  missileRange: number;
-  missileCooldown: number;
-  missileBlastRadius: number;
-  missileRewardBones: number;
 }
 
 export interface InputState {
   left: boolean;
   right: boolean;
   rocket: boolean;
-  missile: boolean;
   jumpHeld: boolean;
 }
 
@@ -116,8 +110,6 @@ export interface RunStats {
   landed: number;
   pickups: number;
   bonusBones: number;
-  hits: number;
-  riskDodges: number;
   overdrives: number;
   combo: number;
   bestCombo: number;
@@ -150,8 +142,6 @@ export interface HudState {
   jumpsLeft: number;
   maxJumps: number;
   rocketPercent: number;
-  missilePercent: number;
-  missileUnlocked: boolean;
   nextGoalLabel: string;
   nextGoalDistance: number;
   storyEvents: number;
@@ -163,7 +153,7 @@ export interface UiMessage {
 }
 
 export interface VirtualInput {
-  key: 'a' | 'd' | 'space' | 'shift' | 'missile' | 'r';
+  key: 'a' | 'd' | 'space' | 'shift' | 'r';
   down: boolean;
 }
 

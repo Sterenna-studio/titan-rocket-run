@@ -59,25 +59,6 @@ export class PlatformGenerator {
       });
     }
 
-    const mineRolls = platform.kind === 'path' ? 1 : 1 + (difficulty.value > 0.42 && platform.w > 210 ? 1 : 0);
-    for (let i = 0; i < mineRolls; i += 1) {
-      const kindPressure = platform.kind === 'ramp' ? 1.12 : platform.kind === 'path' ? 0.72 : 1;
-      const chance = (i === 0 ? difficulty.mineChance : difficulty.mineChance * 0.46) * kindPressure;
-      if (platform.id <= 1 || this.random() >= chance) {
-        continue;
-      }
-
-      const airborne = i > 0 || (difficulty.value > 0.68 && this.random() < 0.28);
-      entities.push({
-        type: 'mine',
-        x: platform.x + 70 + this.random() * Math.max(40, platform.w - 140),
-        y: platform.y - (airborne ? 92 + this.random() * 86 : 30),
-        r: airborne ? 27 : 24,
-        value: 0,
-        bob: this.random() * Math.PI * 2,
-      });
-    }
-
     return entities;
   }
 

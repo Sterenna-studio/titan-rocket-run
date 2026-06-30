@@ -21,7 +21,6 @@ export class LeaderboardSystem {
   }
 
   calculateScore(summary: RunSummary): number {
-    const cleanLandings = Math.max(0, summary.landed - summary.hits);
     const score =
       summary.distance * 12 +
       summary.maxSpeed * 0.35 +
@@ -29,10 +28,8 @@ export class LeaderboardSystem {
       summary.bonusBones * 18 +
       summary.bestCombo * 175 +
       summary.storyEvents * 900 +
-      summary.riskDodges * 520 +
       summary.overdrives * 1250 +
-      cleanLandings * 25 -
-      summary.hits * 220;
+      summary.landed * 25;
 
     return Math.max(0, Math.floor(score));
   }

@@ -7,7 +7,6 @@ export interface DifficultyState {
   minWidth: number;
   maxWidth: number;
   verticalRange: number;
-  mineChance: number;
   boostChance: number;
   rampChance: number;
   pathChance: number;
@@ -25,7 +24,6 @@ export class DifficultyCurve {
       minWidth: 172 - value * 42,
       maxWidth: 470 - value * 155,
       verticalRange: 340 + value * 300,
-      mineChance: 0.23 + value * 0.3,
       boostChance: Math.max(0.07, 0.14 - value * 0.03),
       rampChance: 0.12 + value * 0.08,
       pathChance: Math.max(0.07, 0.17 - value * 0.07),

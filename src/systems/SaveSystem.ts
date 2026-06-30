@@ -46,11 +46,10 @@ function normalizeSave(raw: Partial<SaveData> | null): SaveData {
 
 function pickBadge(stats: RunStats): string {
   if (stats.overdrives >= 3) return 'Overdrive street';
-  if (stats.riskDodges >= 5) return 'Mine dancer';
   if (stats.bestMilestone) return stats.bestMilestone;
   if (stats.distance > 220) return 'Sonic dog spirit';
   if (stats.bestCombo >= 8) return "Combo d'os";
-  if (stats.hits === 0 && stats.distance > 80) return 'Run propre';
+  if (stats.landed >= 8 && stats.distance > 80) return 'Run propre';
   if (stats.jumps >= 12) return 'Plateformer ne';
   return '';
 }
@@ -94,10 +93,9 @@ export class SaveSystem {
         distance * 0.65 +
           stats.bonusBones +
           stats.storyEvents * 12 +
-          stats.riskDodges * 3 +
           stats.overdrives * 8 +
           stats.bestCombo * 1.2 +
-          Math.max(0, stats.landed - stats.hits) * 0.8,
+          stats.landed * 0.8,
       ),
     );
     const isRecord = distance > this.save.best;

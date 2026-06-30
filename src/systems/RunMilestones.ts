@@ -16,7 +16,7 @@ export const RUN_MILESTONES: RunMilestone[] = [
     id: 'moss-bridge',
     distance: 360,
     title: 'Pont de mousse',
-    body: 'Les plateformes deviennent plus rapides. Ramasse le cache-os avant les mines.',
+    body: 'Les plateformes deviennent plus rapides. Ramasse le cache-os avant que Titan ne perde son elan au sol.',
     rewardBones: 14,
     rocketPercent: 38,
     speedBoost: 320,

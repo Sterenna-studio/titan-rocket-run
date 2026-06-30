@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import {
   CRASH_GROUND_Y,
   DEATH_Y,
+  GROUND_SPEED_RETAIN_PER_METER,
   GRAVITY,
   LAUNCH_MAX_VX,
   LAUNCH_MAX_VY,
@@ -107,6 +108,7 @@ export class TitanController {
     this.launchSpeedCapBonus = Math.max(0, this.launchSpeedCapBonus - 720 * dt);
     this.updateSpaceExposure(dt);
 
+    const prevX = this.state.x;
     const prevY = this.state.y;
     this.state.vy += GRAVITY * this.stats.gravityScale * this.getAltitudeGravityScale() * dt;
     this.state.vy = Math.min(this.state.vy, 1180);
@@ -119,6 +121,7 @@ export class TitanController {
     if (boostPad && Math.abs(this.state.vx) < this.stats.topSpeed * 0.96) {
       this.state.vx += this.facing * 230;
     }
+    this.applyGroundLureDrag(prevX, wasGrounded);
 
     if (collision.landed && input.jumpHeld && this.stats.bouncePower > 0 && impactVy > 360) {
       this.rebound(impactVy);
@@ -196,22 +199,6 @@ export class TitanController {
       this.state.vy -= 120;
     }
     this.syncSprite();
-  }
-
-  applyMineHit(): boolean {
-    if (this.state.invuln > 0) {
-      return false;
-    }
-
-    this.state.invuln = 0.65;
-    this.state.hurt = 0.38;
-    this.state.vx *= this.stats.bouncePower > 0 ? 0.86 : 0.76;
-    this.state.vy = Math.min(this.state.vy, this.stats.bouncePower > 0 ? -this.stats.bouncePower * 0.82 : -260);
-    if (this.stats.bouncePower > 0) {
-      this.state.vx += this.facing * this.stats.bouncePush;
-    }
-    this.play('hurt', true);
-    return true;
   }
 
   knockOut(): void {
@@ -349,6 +336,22 @@ export class TitanController {
     this.state.vx += this.facing * this.stats.bouncePush;
     this.state.jumpsLeft = Math.max(0, this.stats.maxJumps - 1);
     this.play('jump', true);
+  }
+
+  private applyGroundLureDrag(prevX: number, wasGrounded: boolean): void {
+    if (!wasGrounded || !this.state.grounded || Math.abs(this.state.vx) < 1) {
+      return;
+    }
+
+    const metersOnGround = Math.abs(this.state.x - prevX) * WORLD_SCALE;
+    if (metersOnGround <= 0) {
+      return;
+    }
+
+    this.state.vx *= Math.pow(GROUND_SPEED_RETAIN_PER_METER, metersOnGround);
+    if (Math.abs(this.state.vx) < 9) {
+      this.state.vx = 0;
+    }
   }
 
   private getAltitudeGravityScale(): number {

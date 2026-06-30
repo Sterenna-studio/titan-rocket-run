@@ -10,6 +10,7 @@ export class BootScene extends Phaser.Scene {
 
   preload(): void {
     this.load.json('titan-manifest', MANIFEST_URL);
+    this.load.image('titan-rocket-projectile', 'assets/effects/titan-rocket-projectile.png');
   }
 
   create(): void {

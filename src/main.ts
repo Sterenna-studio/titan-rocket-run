@@ -24,11 +24,12 @@ const ui = {
   timingText: byId('timingText'),
   rocketMeter: byId('rocketMeter') as HTMLMeterElement,
   rocketText: byId('rocketText'),
-  missileMeter: byId('missileMeter') as HTMLMeterElement,
-  missileText: byId('missileText'),
   resetSave: byId('resetSave') as ButtonEl,
   muteBtn: byId('muteBtn') as ButtonEl,
   overlay: byId('overlay'),
+  snikyIntro: byId('snikyIntro'),
+  snikyClose: byId('snikyClose') as ButtonEl,
+  snikySkipForever: byId('snikySkipForever') as ButtonEl,
   titleScreen: byId('titleScreen'),
   resultScreen: byId('resultScreen'),
   playBtn: byId('playBtn') as ButtonEl,
@@ -39,9 +40,9 @@ const ui = {
   resSpeed: byId('resSpeed'),
   resJump: byId('resJump'),
   resBones: byId('resBones'),
-  resDodges: byId('resDodges'),
+  resLandings: byId('resLandings'),
   resOverdrives: byId('resOverdrives'),
-  resHits: byId('resHits'),
+  resSignals: byId('resSignals'),
   resReward: byId('resReward'),
   resBadge: byId('resBadge'),
   scoreForm: byId('scoreForm') as HTMLFormElement,
@@ -52,12 +53,13 @@ const ui = {
 let soundMuted = false;
 let latestSummary: RunSummary | null = null;
 let scoreSubmitted = false;
+const SNIKY_INTRO_SKIP_KEY = 'titanRocketRunSkipSnikyIntro';
 
 renderLeaderboard();
 renderSave(saveSystem.getSnapshot());
 renderMessage({
   title: 'Pret ?',
-  body: "Charge ton depart, poursuis les signaux de Titan et empile les combos d'os.",
+  body: "Charge ton depart, poursuis les signaux de Titan et ne traine pas au sol.",
 });
 
 ui.playBtn.addEventListener('click', () => requestStart());
@@ -90,6 +92,11 @@ ui.muteBtn.addEventListener('click', () => {
   ui.muteBtn.setAttribute('aria-pressed', String(soundMuted));
   ui.muteBtn.blur();
 });
+ui.snikyClose.addEventListener('click', () => hideSnikyIntro());
+ui.snikySkipForever.addEventListener('click', () => {
+  window.localStorage.setItem(SNIKY_INTRO_SKIP_KEY, 'true');
+  hideSnikyIntro();
+});
 
 game.events.on(GameEvents.MenuReady, showTitle);
 game.events.on(GameEvents.RunStarted, hideOverlay);
@@ -100,6 +107,7 @@ game.events.on(GameEvents.SaveChanged, (save: SaveData) => renderSave(save));
 
 bindTouchControls();
 bindAudioUnlock();
+showSnikyIntroIfNeeded();
 
 function byId(id: string): HTMLElement {
   const element = document.getElementById(id);
@@ -117,12 +125,14 @@ function requestStart(): void {
 }
 
 function showTitle(): void {
+  ui.overlay.classList.remove('isResult');
   ui.titleScreen.classList.remove('hidden');
   ui.resultScreen.classList.add('hidden');
   ui.overlay.classList.remove('hidden');
 }
 
 function hideOverlay(): void {
+  ui.overlay.classList.remove('isResult');
   ui.overlay.classList.add('hidden');
   ui.titleScreen.classList.add('hidden');
   ui.resultScreen.classList.add('hidden');
@@ -133,6 +143,7 @@ function showResult(summary: RunSummary): void {
   scoreSubmitted = false;
   renderSave(saveSystem.getSnapshot());
   renderLeaderboard();
+  ui.overlay.classList.add('isResult');
   ui.titleScreen.classList.add('hidden');
   ui.resultScreen.classList.remove('hidden');
   ui.overlay.classList.remove('hidden');
@@ -141,9 +152,9 @@ function showResult(summary: RunSummary): void {
   ui.resSpeed.textContent = `${Math.round(summary.maxSpeed)}`;
   ui.resJump.textContent = `${summary.jumps}`;
   ui.resBones.textContent = `${summary.pickups} (+${summary.bonusBones})`;
-  ui.resDodges.textContent = `${summary.riskDodges}`;
+  ui.resLandings.textContent = `${summary.landed}`;
   ui.resOverdrives.textContent = `${summary.overdrives}`;
-  ui.resHits.textContent = `${summary.hits}`;
+  ui.resSignals.textContent = `${summary.storyEvents}`;
   ui.resReward.textContent = `+${summary.reward}`;
   ui.resTitle.textContent =
     summary.finishReason === 'space'
@@ -168,8 +179,20 @@ function updateHud(hud: HudState): void {
   ui.timingText.textContent = `${hud.jumpsLeft}/${hud.maxJumps}`;
   ui.rocketMeter.value = hud.rocketPercent;
   ui.rocketText.textContent = `${Math.round(hud.rocketPercent)}%`;
-  ui.missileMeter.value = hud.missilePercent;
-  ui.missileText.textContent = hud.missileUnlocked ? (hud.missilePercent >= 100 ? 'OK' : `${Math.round(hud.missilePercent)}%`) : 'LOCK';
+}
+
+function showSnikyIntroIfNeeded(): void {
+  if (window.localStorage.getItem(SNIKY_INTRO_SKIP_KEY) === 'true') {
+    return;
+  }
+
+  ui.snikyIntro.classList.remove('hidden');
+  ui.snikyClose.focus({ preventScroll: true });
+}
+
+function hideSnikyIntro(): void {
+  ui.snikyIntro.classList.add('hidden');
+  ui.playBtn.focus({ preventScroll: true });
 }
 
 function renderMessage(message: UiMessage): void {
@@ -292,7 +315,6 @@ function bindTouchControls(): void {
     d: 'd',
     space: 'space',
     shift: 'shift',
-    missile: 'missile',
     r: 'r',
   };
 

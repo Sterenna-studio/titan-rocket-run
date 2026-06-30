@@ -28,11 +28,11 @@ export class ResultScene extends Phaser.Scene {
     graphics.lineStyle(3, COLORS.green, 0.22);
     graphics.lineBetween(0, CRASH_GROUND_Y, GAME_WIDTH, CRASH_GROUND_Y);
     graphics.fillStyle(0x1a2a1c, 1);
-    graphics.fillRoundedRect(160, GROUND_Y, 820, 70, 12);
+    graphics.fillRoundedRect(GAME_WIDTH / 2 - 410, GROUND_Y, 820, 70, 12);
     graphics.lineStyle(3, COLORS.green, 0.36);
-    graphics.strokeRoundedRect(160, GROUND_Y, 820, 70, 12);
+    graphics.strokeRoundedRect(GAME_WIDTH / 2 - 410, GROUND_Y, 820, 70, 12);
 
-    const titan = this.add.sprite(420, GROUND_Y + TITAN_BOTTOM_PAD, defaultTitanFrame()).setOrigin(0.5, 1).setDepth(5);
+    const titan = this.add.sprite(GAME_WIDTH / 2, GROUND_Y + TITAN_BOTTOM_PAD, defaultTitanFrame()).setOrigin(0.5, 1).setDepth(5);
     scaleTitanSprite(this, titan);
     titan.play(titanAnimKey('knockout'));
 

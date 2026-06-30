@@ -191,7 +191,7 @@ kbd {
 }
 .hud {
   position: absolute; left: 18px; right: 18px; top: 14px;
-  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px;
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px;
   pointer-events: none;
 }
 .hud > div {
@@ -275,16 +275,60 @@ meter { width: calc(100% - 46px); height: 14px; vertical-align: middle; }
 }
 .touchJump { min-width: 92px; }
 .touchRocket { min-width: 106px; }
-.touchMissile { min-width: 112px; }
 .touchRetry { min-width: 56px; opacity: .86; }
 
 /* Overlays (title + results) */
+.snikyIntro {
+  position: absolute; inset: 0; z-index: 8;
+  display: grid; place-items: center; padding: 24px;
+  background: radial-gradient(circle at 50% 34%, rgba(13,32,18,.9), rgba(3,9,6,.96));
+  backdrop-filter: blur(6px);
+}
+.snikyIntro.hidden { display: none; }
+.snikyCard {
+  width: min(620px, 100%);
+  padding: 24px 26px;
+  border: 1px solid rgba(111,255,126,.42);
+  border-radius: var(--radius);
+  background: linear-gradient(160deg, rgba(8,24,14,.98), rgba(9,34,18,.94));
+  box-shadow: 0 0 60px rgba(98,255,82,.22);
+}
+.snikyCard .eyebrow {
+  margin: 0 0 8px;
+  color: var(--amber);
+  font-size: 12px;
+  font-weight: 1000;
+  text-transform: uppercase;
+}
+.snikyCard h2 { margin: 0 0 10px; font-size: 26px; letter-spacing: 0; }
+.snikyCard p { line-height: 1.45; }
+.snikyActions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+.ghostBtn {
+  border: 1px solid rgba(111,255,126,.34);
+  border-radius: 12px;
+  padding: 13px 18px;
+  background: rgba(255,255,255,.06);
+  color: var(--text);
+  font-weight: 900;
+  cursor: pointer;
+}
 .overlay {
   position: absolute; inset: 0; display: grid; place-items: center;
   padding: 24px; background: radial-gradient(circle at 50% 35%, rgba(6,18,11,.72), rgba(3,9,6,.92));
   backdrop-filter: blur(4px); z-index: 5;
 }
 .overlay.hidden { display: none; }
+.overlay.isResult {
+  place-items: start center;
+  padding-top: clamp(10px, 2dvh, 26px);
+  background: linear-gradient(180deg, rgba(3,9,6,.86), rgba(3,9,6,.55) 48%, rgba(3,9,6,.16));
+  backdrop-filter: blur(1px);
+}
 .card {
   width: min(640px, 100%); max-height: calc(100dvh - 42px); overflow: auto;
   text-align: center; padding: 24px 26px;
@@ -293,6 +337,10 @@ meter { width: calc(100% - 46px); height: 14px; vertical-align: middle; }
   box-shadow: 0 0 60px rgba(60,255,90,.18);
 }
 .card.hidden { display: none; }
+.overlay.isResult #resultScreen {
+  width: min(760px, 100%);
+  max-height: min(58dvh, 560px);
+}
 .bigTitle {
   margin: 0 0 6px; font-size: clamp(30px, 4vw, 42px); letter-spacing: 0;
   background: linear-gradient(180deg, #d6ffd0, var(--green));
@@ -440,7 +488,6 @@ meter { width: calc(100% - 46px); height: 14px; vertical-align: middle; }
   }
   .touchJump { min-width: 76px; }
   .touchRocket { min-width: 92px; }
-  .touchMissile { min-width: 98px; }
   .touchRetry { min-width: 48px; }
 }
 
@@ -578,6 +625,9 @@ meter { width: calc(100% - 46px); height: 14px; vertical-align: middle; }
   }
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .card { padding: 18px; }
+  .snikyCard { padding: 18px; }
+  .snikyCard h2 { font-size: 22px; }
+  .snikyActions { display: grid; }
 }
 
 @media (max-width: 420px) {
@@ -597,7 +647,6 @@ meter { width: calc(100% - 46px); height: 14px; vertical-align: middle; }
   }
   .touchJump { min-width: 62px; }
   .touchRocket { min-width: 74px; }
-  .touchMissile { min-width: 82px; }
   .stats { grid-template-columns: 1fr; }
   .scoreForm div { grid-template-columns: 1fr; }
 }
