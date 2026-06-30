@@ -84,6 +84,7 @@ export class RunScene extends Phaser.Scene {
   private jumpBuffer = 0;
   private boostSoundCooldown = 0;
   private rocketVisualCooldown = 0;
+  private strideFeedbackCooldown = 0;
   private nextOverdriveCombo = 6;
   private stallTimer = 0;
   private launchCharging = true;
@@ -112,6 +113,7 @@ export class RunScene extends Phaser.Scene {
     this.launchSparkTimer = 0;
     this.lastCrashMessageAt = 0;
     this.rocketVisualCooldown = 0;
+    this.strideFeedbackCooldown = 0;
     this.nextOverdriveCombo = 6;
     this.stallTimer = 0;
     this.ended = false;
@@ -197,6 +199,7 @@ export class RunScene extends Phaser.Scene {
     this.jumpBuffer = Math.max(0, this.jumpBuffer - dt);
     this.boostSoundCooldown = Math.max(0, this.boostSoundCooldown - dt);
     this.rocketVisualCooldown = Math.max(0, this.rocketVisualCooldown - dt);
+    this.strideFeedbackCooldown = Math.max(0, this.strideFeedbackCooldown - dt);
     this.chunk.ensure(this.cameras.main.scrollX, GAME_WIDTH);
 
     const input = this.getInputState();
@@ -325,6 +328,8 @@ export class RunScene extends Phaser.Scene {
       this.virtualDown.add(input.key);
       if (input.key === 'space') {
         this.jumpBuffer = 0.13;
+      } else if (input.key === 'strideLeft' || input.key === 'strideRight') {
+        this.tapRunStride();
       } else if (input.key === 'r') {
         this.restartRun(this.seed);
       }
@@ -335,6 +340,20 @@ export class RunScene extends Phaser.Scene {
     if (input.key === 'space') {
       this.titan.releaseJump();
     }
+  }
+
+  private tapRunStride(): void {
+    if (this.ended || this.launchCharging || !this.titan.tapRunStride()) {
+      return;
+    }
+
+    if (this.strideFeedbackCooldown > 0) {
+      return;
+    }
+
+    this.strideFeedbackCooldown = 0.06;
+    const snap = this.titan.getSnapshot();
+    this.spawnDust(snap.x - 34, snap.y + snap.h);
   }
 
   private getInputState(): InputState {
@@ -805,15 +824,21 @@ export class RunScene extends Phaser.Scene {
   }
 
   private drawGroundLures(startX: number, endX: number, top: number): void {
-    const lureStart = Math.floor(startX / 460) * 460;
-    for (let baseX = lureStart; baseX < endX + 460; baseX += 460) {
+    const spacing = 1500;
+    const lureStart = Math.floor(startX / spacing) * spacing;
+    for (let baseX = lureStart; baseX < endX + spacing; baseX += spacing) {
       const seed = this.groundHash(baseX);
-      const x = baseX + 86 + seed * 178;
+      if (seed < 0.58) {
+        continue;
+      }
+
+      const typeSeed = this.groundHash(baseX + 19.7);
+      const x = baseX + 180 + seed * 360;
       const y = top + 42 + Math.sin(baseX * 0.017) * 8;
-      if (seed < 0.56) {
-        this.drawCableLure(x, y, seed);
+      if (typeSeed < 0.62) {
+        this.drawCableLure(x, y, typeSeed);
       } else {
-        this.drawRemoteLure(x, y + 4, seed);
+        this.drawRemoteLure(x, y + 4, typeSeed);
       }
     }
   }

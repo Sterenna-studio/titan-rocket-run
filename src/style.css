@@ -275,6 +275,7 @@ meter { width: calc(100% - 46px); height: 14px; vertical-align: middle; }
 }
 .touchJump { min-width: 92px; }
 .touchRocket { min-width: 106px; }
+.touchStride { min-width: 104px; }
 .touchRetry { min-width: 56px; opacity: .86; }
 
 /* Overlays (title + results) */
@@ -486,6 +487,7 @@ meter { width: calc(100% - 46px); height: 14px; vertical-align: middle; }
     border-radius: 14px;
     font-size: 16px;
   }
+  .touchStride { min-width: 88px; }
   .touchJump { min-width: 76px; }
   .touchRocket { min-width: 92px; }
   .touchRetry { min-width: 48px; }
@@ -645,6 +647,7 @@ meter { width: calc(100% - 46px); height: 14px; vertical-align: middle; }
     padding: 0 9px;
     font-size: 14px;
   }
+  .touchStride { min-width: 74px; }
   .touchJump { min-width: 62px; }
   .touchRocket { min-width: 74px; }
   .stats { grid-template-columns: 1fr; }

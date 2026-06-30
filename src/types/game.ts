@@ -153,7 +153,7 @@ export interface UiMessage {
 }
 
 export interface VirtualInput {
-  key: 'a' | 'd' | 'space' | 'shift' | 'r';
+  key: 'a' | 'd' | 'space' | 'shift' | 'strideLeft' | 'strideRight' | 'r';
   down: boolean;
 }
 

@@ -38,9 +38,10 @@ Le workflow OVH installe les dépendances avec `npm ci`, lance `npm run build`, 
 - `Espace` en run : saut, avec double saut de base.
 - `Shift` : rocket boost en l'air.
 - `R` : relancer la run avec la même seed.
+- En tactile : spammer `Patte G` / `Patte D` pour redonner de l'elan au sol.
 - Chute dans le vide : fin de run.
 - Les os donnent des bonus, montent le combo et rendent un peu de rocket.
-- Les cables, telecommandes et petits objets au sol donnent envie a Titan de s'arreter : courir au sol draine 10% de vitesse par metre.
+- Quelques cables, telecommandes et petits objets au sol donnent envie a Titan de s'arreter : courir au sol draine 10% de vitesse par metre.
 - Les bottes double saut augmentent les air-jumps et leur hauteur.
 - Les bottes rebondissantes permettent de maintenir `Espace` en atterrissant pour repartir vers le haut.
 - Le ciel haut réduit la gravité. Dans l'espace, Titan est perdu sans la tenue cosmonaute.

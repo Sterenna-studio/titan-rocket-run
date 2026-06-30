@@ -201,6 +201,19 @@ export class TitanController {
     this.syncSprite();
   }
 
+  tapRunStride(): boolean {
+    if (!this.state.grounded) {
+      return false;
+    }
+
+    this.facing = 1;
+    const impulse = 92 + Math.min(74, this.stats.groundAcceleration * 0.035);
+    this.state.vx = clamp(this.state.vx + impulse, -this.stats.topSpeed * 0.18, this.stats.topSpeed + this.launchSpeedCapBonus);
+    this.play(Math.abs(this.state.vx) > 360 ? 'run' : 'walk', true);
+    this.syncSprite();
+    return true;
+  }
+
   knockOut(): void {
     this.play('knockout', true);
   }

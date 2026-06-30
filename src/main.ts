@@ -315,6 +315,8 @@ function bindTouchControls(): void {
     d: 'd',
     space: 'space',
     shift: 'shift',
+    strideLeft: 'strideLeft',
+    strideRight: 'strideRight',
     r: 'r',
   };
 
