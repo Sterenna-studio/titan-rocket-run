@@ -48,6 +48,10 @@ Le workflow OVH installe les dépendances avec `npm ci`, lance `npm run build`, 
 
 Le feeling inclut coyote time, jump buffer, saut variable, air control léger et caméra avec anticipation vers l'avant.
 
+## Direction V1
+
+La guideline de progression gameplay est dans [`docs/v1-gameplay-guideline.md`](docs/v1-gameplay-guideline.md). Elle cadre les prochaines etapes : seconde chance souterraine, lancement charge court, biomes bretons, obstacles vivants, distorsion de vitesse, controles configurables, manette et mobile.
+
 ## Debug
 
 - `F3` : afficher / masquer l'overlay debug.
