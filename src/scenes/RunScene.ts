@@ -374,6 +374,7 @@ export class RunScene extends Phaser.Scene {
 
   private triggerMilestone(milestone: RunMilestone): void {
     this.reachedMilestones.add(milestone.id);
+    this.stats.milestonesReached.push(milestone.id);
     this.stats.storyEvents += 1;
     this.stats.bonusBones += milestone.rewardBones;
     this.stats.pickups += 1;
@@ -1046,6 +1047,7 @@ export class RunScene extends Phaser.Scene {
       bestCombo: 0,
       storyEvents: 0,
       bestMilestone: '',
+      milestonesReached: [],
     };
   }
 

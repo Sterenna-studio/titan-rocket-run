@@ -15,6 +15,8 @@ const game = new Phaser.Game(createGameConfig());
 const ui = {
   best: byId('bestDistance'),
   coins: byId('coins'),
+  runs: byId('runCount'),
+  signals: byId('signalCount'),
   leaderboard: byId('leaderboard'),
   shop: byId('shop'),
   msg: byId('message'),
@@ -53,13 +55,12 @@ const ui = {
 let soundMuted = false;
 let latestSummary: RunSummary | null = null;
 let scoreSubmitted = false;
-const SNIKY_INTRO_SKIP_KEY = 'titanRocketRunSkipSnikyIntro';
 
 renderLeaderboard();
 renderSave(saveSystem.getSnapshot());
 renderMessage({
-  title: 'Pret ?',
-  body: 'Titan court tout seul : saute, booste court, ramasse les os et vise les signaux.',
+  title: 'Nouvelle save V1',
+  body: 'Sniky t attend avec 130 os de depart. Choisis un premier upgrade puis suis les signaux bretons.',
 });
 
 ui.playBtn.addEventListener('click', () => requestStart());
@@ -79,7 +80,8 @@ ui.resetSave.addEventListener('click', () => {
 
   renderSave(saveSystem.reset());
   game.events.emit(GameEvents.SaveChanged, saveSystem.getSnapshot());
-  renderMessage({ title: 'Sauvegarde reset', body: 'Record, os et upgrades remis a zero.' });
+  renderMessage({ title: 'Sauvegarde V1 reset', body: 'Sniky remet Titan au depart avec 130 os et une progression propre.' });
+  showSnikyIntroIfNeeded();
 });
 ui.muteBtn.addEventListener('click', () => {
   soundMuted = !soundMuted;
@@ -92,9 +94,11 @@ ui.muteBtn.addEventListener('click', () => {
   ui.muteBtn.setAttribute('aria-pressed', String(soundMuted));
   ui.muteBtn.blur();
 });
-ui.snikyClose.addEventListener('click', () => hideSnikyIntro());
+ui.snikyClose.addEventListener('click', () => {
+  renderSave(saveSystem.markWelcomeSeen());
+  hideSnikyIntro();
+});
 ui.snikySkipForever.addEventListener('click', () => {
-  window.localStorage.setItem(SNIKY_INTRO_SKIP_KEY, 'true');
   hideSnikyIntro();
 });
 
@@ -175,7 +179,7 @@ function updateHud(hud: HudState): void {
 }
 
 function showSnikyIntroIfNeeded(): void {
-  if (window.localStorage.getItem(SNIKY_INTRO_SKIP_KEY) === 'true') {
+  if (saveSystem.getSnapshot().welcomeSeen) {
     return;
   }
 
@@ -197,6 +201,8 @@ function renderMessage(message: UiMessage): void {
 function renderSave(save: SaveData): void {
   ui.best.textContent = `${save.best.toFixed(1)} m`;
   ui.coins.textContent = `${save.coins}`;
+  ui.runs.textContent = `${save.runs}`;
+  ui.signals.textContent = `${Object.values(save.milestones).filter(Boolean).length}`;
   renderShop();
 }
 

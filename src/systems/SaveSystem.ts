@@ -1,12 +1,17 @@
-import { SAVE_KEY, UPGRADE_DEFINITIONS } from '../game/constants';
+import { SAVE_KEY, SAVE_VERSION, STARTER_BONES, UPGRADE_DEFINITIONS } from '../game/constants';
 import type { RunStats, RunSummary, SaveData, UpgradeId } from '../types/game';
 
 const upgradeIds = Object.keys(UPGRADE_DEFINITIONS) as UpgradeId[];
 
 function createDefaultSave(): SaveData {
   return {
-    coins: 0,
+    version: SAVE_VERSION,
+    coins: STARTER_BONES,
     best: 0,
+    runs: 0,
+    welcomeSeen: false,
+    lastMilestone: '',
+    milestones: {},
     upgrades: {
       shoes: 0,
       ramp: 0,
@@ -31,15 +36,31 @@ function normalizeSave(raw: Partial<SaveData> | null): SaveData {
     return fallback;
   }
 
+  if (raw.version !== SAVE_VERSION) {
+    return fallback;
+  }
+
   const upgrades = { ...fallback.upgrades };
   for (const id of upgradeIds) {
     const value = Number(raw.upgrades?.[id] ?? 0);
     upgrades[id] = Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
   }
 
+  const milestones: Record<string, boolean> = {};
+  if (typeof raw.milestones === 'object' && raw.milestones) {
+    for (const [id, reached] of Object.entries(raw.milestones)) {
+      milestones[id] = reached === true;
+    }
+  }
+
   return {
+    version: SAVE_VERSION,
     coins: Number.isFinite(raw.coins) ? Math.max(0, Math.floor(raw.coins ?? 0)) : fallback.coins,
     best: Number.isFinite(raw.best) ? Math.max(0, Number(raw.best ?? 0)) : fallback.best,
+    runs: Number.isFinite(raw.runs) ? Math.max(0, Math.floor(raw.runs ?? 0)) : fallback.runs,
+    welcomeSeen: raw.welcomeSeen === true,
+    lastMilestone: typeof raw.lastMilestone === 'string' ? raw.lastMilestone : fallback.lastMilestone,
+    milestones,
     upgrades,
   };
 }
@@ -71,6 +92,12 @@ export class SaveSystem {
     return this.getSnapshot();
   }
 
+  markWelcomeSeen(): SaveData {
+    this.save.welcomeSeen = true;
+    this.write();
+    return this.getSnapshot();
+  }
+
   buyUpgrade(id: UpgradeId, cost: number): boolean {
     const definition = UPGRADE_DEFINITIONS[id];
     const level = this.save.upgrades[id] ?? 0;
@@ -88,21 +115,28 @@ export class SaveSystem {
   recordRun(stats: RunStats, seed = '', finishReason: RunSummary['finishReason'] = 'fall'): RunSummary {
     const distance = Math.max(0, stats.distance);
     const reward = Math.max(
-      1,
+      6,
       Math.floor(
-        distance * 0.65 +
+        distance * 0.58 +
           stats.bonusBones +
-          stats.storyEvents * 12 +
-          stats.overdrives * 8 +
-          stats.bestCombo * 1.2 +
+          stats.storyEvents * 18 +
+          stats.overdrives * 10 +
+          stats.bestCombo * 1.4 +
           stats.landed * 0.8,
       ),
     );
     const isRecord = distance > this.save.best;
 
+    this.save.runs += 1;
     this.save.coins += reward;
     if (isRecord) {
       this.save.best = distance;
+    }
+    for (const milestoneId of stats.milestonesReached) {
+      this.save.milestones[milestoneId] = true;
+    }
+    if (stats.bestMilestone) {
+      this.save.lastMilestone = stats.bestMilestone;
     }
 
     this.write();

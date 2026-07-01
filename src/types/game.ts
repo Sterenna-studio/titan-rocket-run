@@ -12,8 +12,13 @@ export interface UpgradeDefinition {
 }
 
 export interface SaveData {
+  version: number;
   coins: number;
   best: number;
+  runs: number;
+  welcomeSeen: boolean;
+  lastMilestone: string;
+  milestones: Record<string, boolean>;
   upgrades: Record<UpgradeId, number>;
 }
 
@@ -114,6 +119,7 @@ export interface RunStats {
   bestCombo: number;
   storyEvents: number;
   bestMilestone: string;
+  milestonesReached: string[];
 }
 
 export interface RunSummary extends RunStats {

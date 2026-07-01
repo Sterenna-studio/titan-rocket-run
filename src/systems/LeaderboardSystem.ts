@@ -1,6 +1,6 @@
 import type { LeaderboardEntry, RunSummary } from '../types/game';
 
-const LEADERBOARD_KEY = 'titanRocketRunArcadeLeaderboard';
+const LEADERBOARD_KEY = 'titanRocketRunArcadeLeaderboardV1';
 const MAX_VISIBLE_ENTRIES = 10;
 const MAX_LOCAL_ENTRIES = 20;
 

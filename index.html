@@ -17,6 +17,8 @@
         <button id="muteBtn" class="iconToggle" title="Couper / activer le son" aria-pressed="false" type="button">Son</button>
         <span>Record <b id="bestDistance">0 m</b></span>
         <span>Os <b id="coins">0</b></span>
+        <span>Runs <b id="runCount">0</b></span>
+        <span>Signaux <b id="signalCount">0</b></span>
       </div>
     </header>
 
@@ -33,8 +35,9 @@
         <h2>Tuto de Sniky</h2>
         <div class="tutorial">
           <b>Sniky, maitre de Titan, aka le bg beau gosse de la street</b>
+          <p>Nouvelle save V1 : Sniky offre 130 os pour choisir un premier upgrade avant la route.</p>
           <p>Titan court tout seul. Ton job : sauter au bon moment et garder un peu de rocket pour sauver les sauts trop courts.</p>
-          <p>Les os dessinent souvent la trajectoire sure. Les signaux donnent une recharge et relancent la vitesse.</p>
+          <p>Les signaux bretons marquent la progression : garage, Saint-Malo, Broceliande, Carnac, Brest, Monts d'Arree.</p>
           <p>Les gros combos declenchent un overdrive : rocket rechargee, vitesse bonus et os bonus.</p>
         </div>
 
@@ -65,11 +68,11 @@
           <div id="snikyIntro" class="snikyIntro hidden" role="dialog" aria-modal="true" aria-labelledby="snikyIntroTitle">
             <div class="snikyCard">
               <p class="eyebrow">Tuto de Sniky</p>
-              <h2 id="snikyIntroTitle">Titan court tout seul : garde-le sur la piste.</h2>
-              <p>Saute les trous, utilise la rocket seulement pour corriger une trajectoire trop courte, puis suis les os et les signaux lumineux pour rester dans le rythme.</p>
+              <h2 id="snikyIntroTitle">Bienvenue sur la nouvelle piste V1 de Titan.</h2>
+              <p>Sniky t'offre 130 os pour acheter un premier upgrade. Titan court tout seul : saute les trous, garde la rocket pour corriger, puis suis les signaux bretons pour debloquer la progression.</p>
               <div class="snikyActions">
                 <button id="snikyClose" class="cta" type="button">Compris</button>
-                <button id="snikySkipForever" class="ghostBtn" type="button">Passer pour toujours</button>
+                <button id="snikySkipForever" class="ghostBtn" type="button">Revoir au prochain lancement</button>
               </div>
             </div>
           </div>

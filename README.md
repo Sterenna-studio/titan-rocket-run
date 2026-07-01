@@ -64,11 +64,15 @@ L'overlay debug affiche seed, distance, vitesse X/Y, grounded, sauts restants, r
 
 La sauvegarde reste en `localStorage` avec :
 
+- version de save V1 volontairement separee des anciens essais ;
 - record de distance ;
 - os ;
+- nombre de runs ;
+- accueil Sniky vu ou non ;
+- signaux bretons deja atteints ;
 - upgrades.
 
-Les upgrades sont appliqués au démarrage d'une nouvelle run.
+Une nouvelle save commence avec 130 os offerts par Sniky pour acheter un premier upgrade. Les upgrades sont appliqués au démarrage d'une nouvelle run.
 
 ## Architecture
 
