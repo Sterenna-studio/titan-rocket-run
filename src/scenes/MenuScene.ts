@@ -19,7 +19,7 @@ export class MenuScene extends Phaser.Scene {
     titan.play(titanAnimKey('idle'));
 
     this.add
-      .text(GAME_WIDTH / 2, GROUND_Y - 92, 'Espace ou bouton Jouer pour lancer une run', {
+      .text(GAME_WIDTH / 2, GROUND_Y - 92, 'Espace ou bouton Jouer : Titan part en runner automatique', {
         color: COLORS.muted,
         fontFamily: 'system-ui, sans-serif',
         fontSize: '18px',

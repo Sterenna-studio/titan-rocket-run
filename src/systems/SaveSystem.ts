@@ -47,10 +47,10 @@ function normalizeSave(raw: Partial<SaveData> | null): SaveData {
 function pickBadge(stats: RunStats): string {
   if (stats.overdrives >= 3) return 'Overdrive street';
   if (stats.bestMilestone) return stats.bestMilestone;
-  if (stats.distance > 220) return 'Sonic dog spirit';
+  if (stats.distance > 220) return 'Runner propre';
   if (stats.bestCombo >= 8) return "Combo d'os";
-  if (stats.landed >= 8 && stats.distance > 80) return 'Run propre';
-  if (stats.jumps >= 12) return 'Plateformer ne';
+  if (stats.landed >= 8 && stats.distance > 80) return 'Piste tenue';
+  if (stats.jumps >= 12) return 'Bon timing';
   return '';
 }
 

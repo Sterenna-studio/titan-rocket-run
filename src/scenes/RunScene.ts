@@ -6,9 +6,6 @@ import {
   GAME_WIDTH,
   GameEvents,
   GROUND_Y,
-  LAUNCH_CHARGE_SECONDS,
-  LAUNCH_PERFECT_MAX,
-  LAUNCH_PERFECT_MIN,
   SKY_Y,
   SPACE_Y,
   START_X,
@@ -48,15 +45,6 @@ interface ImpactMark {
   seed: number;
 }
 
-interface LaunchGrade {
-  title: string;
-  body: string;
-  color: number;
-  chargeBonus: number;
-  speedBonus: number;
-  rocketPercent: number;
-}
-
 type KeyMap = Record<'a' | 'q' | 'd' | 'left' | 'right' | 'space' | 'shift', Phaser.Input.Keyboard.Key>;
 
 export class RunScene extends Phaser.Scene {
@@ -66,7 +54,6 @@ export class RunScene extends Phaser.Scene {
   private collect = new CollectibleSystem();
   private groundGraphics!: Phaser.GameObjects.Graphics;
   private platformGraphics!: Phaser.GameObjects.Graphics;
-  private launchGraphics!: Phaser.GameObjects.Graphics;
   private hitboxGraphics!: Phaser.GameObjects.Graphics;
   private debugText!: Phaser.GameObjects.Text;
   private hudText!: Phaser.GameObjects.Text;
@@ -84,13 +71,7 @@ export class RunScene extends Phaser.Scene {
   private jumpBuffer = 0;
   private boostSoundCooldown = 0;
   private rocketVisualCooldown = 0;
-  private strideFeedbackCooldown = 0;
   private nextOverdriveCombo = 6;
-  private stallTimer = 0;
-  private launchCharging = true;
-  private launchCharge = 0;
-  private launchDirection = 1;
-  private launchSparkTimer = 0;
   private lastCrashMessageAt = 0;
   private debugVisible = false;
   private hitboxesVisible = false;
@@ -108,14 +89,9 @@ export class RunScene extends Phaser.Scene {
     this.playerStats = upgradeSystem.getPlayerStats();
     this.stats = this.createStats();
     this.reachedMilestones.clear();
-    this.launchCharging = true;
-    this.launchCharge = 0;
-    this.launchSparkTimer = 0;
     this.lastCrashMessageAt = 0;
     this.rocketVisualCooldown = 0;
-    this.strideFeedbackCooldown = 0;
     this.nextOverdriveCombo = 6;
-    this.stallTimer = 0;
     this.ended = false;
     this.particles = [];
     this.impactMarks = [];
@@ -128,7 +104,6 @@ export class RunScene extends Phaser.Scene {
 
     this.groundGraphics = this.add.graphics().setDepth(5);
     this.platformGraphics = this.add.graphics().setDepth(8);
-    this.launchGraphics = this.add.graphics().setDepth(65);
     this.hitboxGraphics = this.add.graphics().setDepth(80).setVisible(false);
     this.debugText = this.add
       .text(14, 112, '', {
@@ -178,8 +153,8 @@ export class RunScene extends Phaser.Scene {
     this.emitHud();
     this.game.events.emit(GameEvents.RunStarted);
     this.game.events.emit(GameEvents.Message, {
-      title: 'Charge le depart',
-      body: 'Maintiens Espace, relache, puis vise les balises lumineuses pour declencher les recompenses.',
+      title: 'Course lancee',
+      body: 'Titan avance tout seul : saute les trous, garde un peu de rocket pour sauver les longues distances et vise les balises.',
     });
   }
 
@@ -199,24 +174,9 @@ export class RunScene extends Phaser.Scene {
     this.jumpBuffer = Math.max(0, this.jumpBuffer - dt);
     this.boostSoundCooldown = Math.max(0, this.boostSoundCooldown - dt);
     this.rocketVisualCooldown = Math.max(0, this.rocketVisualCooldown - dt);
-    this.strideFeedbackCooldown = Math.max(0, this.strideFeedbackCooldown - dt);
     this.chunk.ensure(this.cameras.main.scrollX, GAME_WIDTH);
 
     const input = this.getInputState();
-    if (this.launchCharging) {
-      this.stallTimer = 0;
-      this.updateLaunch(dt, input);
-      this.updateCamera(dt);
-      this.updateBackground();
-      this.updateParticles(dt);
-      this.updateImpactMarks(dt);
-      this.drawPlatforms();
-      this.updateHudText();
-      this.updateDebug();
-      this.emitHud();
-      return;
-    }
-
     const beforeJump = this.titan.getSnapshot();
     if (this.jumpBuffer > 0 && this.titan.tryJump()) {
       this.jumpBuffer = 0;
@@ -250,9 +210,6 @@ export class RunScene extends Phaser.Scene {
 
     this.handleEntities();
     this.updateStats();
-    if (this.handleStall(dt)) {
-      return;
-    }
     this.handleMilestones();
     this.updateCamera(dt);
     this.updateBackground();
@@ -328,8 +285,6 @@ export class RunScene extends Phaser.Scene {
       this.virtualDown.add(input.key);
       if (input.key === 'space') {
         this.jumpBuffer = 0.13;
-      } else if (input.key === 'strideLeft' || input.key === 'strideRight') {
-        this.tapRunStride();
       } else if (input.key === 'r') {
         this.restartRun(this.seed);
       }
@@ -342,112 +297,12 @@ export class RunScene extends Phaser.Scene {
     }
   }
 
-  private tapRunStride(): void {
-    if (this.ended || this.launchCharging || !this.titan.tapRunStride()) {
-      return;
-    }
-
-    if (this.strideFeedbackCooldown > 0) {
-      return;
-    }
-
-    this.strideFeedbackCooldown = 0.06;
-    const snap = this.titan.getSnapshot();
-    this.spawnDust(snap.x - 34, snap.y + snap.h);
-  }
-
   private getInputState(): InputState {
     return {
       left: this.keys.a.isDown || this.keys.q.isDown || this.keys.left.isDown || this.virtualDown.has('a'),
       right: this.keys.d.isDown || this.keys.right.isDown || this.virtualDown.has('d'),
       rocket: this.keys.shift.isDown || this.virtualDown.has('shift'),
       jumpHeld: this.keys.space.isDown || this.virtualDown.has('space'),
-    };
-  }
-
-  private updateLaunch(dt: number, input: InputState): void {
-    this.jumpBuffer = 0;
-    this.launchDirection = 1;
-
-    if (input.jumpHeld) {
-      this.launchCharge = Math.min(LAUNCH_CHARGE_SECONDS, this.launchCharge + dt);
-      this.launchSparkTimer -= dt;
-      if (this.launchSparkTimer <= 0) {
-        this.spawnLaunchSparks(clamp(this.launchCharge / LAUNCH_CHARGE_SECONDS, 0, 1));
-        this.launchSparkTimer = 0.08;
-      }
-    } else if (this.launchCharge > 0) {
-      this.fireChargedLaunch();
-    } else {
-      this.launchSparkTimer = 0;
-    }
-
-    this.drawLaunchMeter();
-  }
-
-  private fireChargedLaunch(): void {
-    const charge = clamp(this.launchCharge / LAUNCH_CHARGE_SECONDS, 0, 1);
-    const grade = this.getLaunchGrade(charge);
-    const effectiveCharge = clamp(charge + grade.chargeBonus, 0, 1);
-    const snap = this.titan.getSnapshot();
-
-    this.launchCharging = false;
-    this.launchCharge = 0;
-    this.launchGraphics.clear();
-    this.titan.launch(effectiveCharge, this.launchDirection);
-    if (grade.speedBonus > 0 || grade.rocketPercent > 0) {
-      this.titan.awardRunReward(grade.rocketPercent, grade.speedBonus);
-    }
-    this.stats.jumps += 1;
-    soundSystem.launch(effectiveCharge);
-    this.spawnBurst(snap.x, snap.y + snap.h, 12 + Math.round(effectiveCharge * 22), grade.color);
-    this.game.events.emit(GameEvents.Message, {
-      title: grade.title,
-      body: grade.body,
-    });
-  }
-
-  private getLaunchGrade(charge: number): LaunchGrade {
-    if (charge >= LAUNCH_PERFECT_MIN && charge <= LAUNCH_PERFECT_MAX) {
-      return {
-        title: 'Depart parfait !',
-        body: 'Timing dans la zone verte : vitesse bonus, rocket chargee et trajectoire haute.',
-        color: 0x8cfffb,
-        chargeBonus: 0.12,
-        speedBonus: 210,
-        rocketPercent: 12,
-      };
-    }
-
-    if (charge > LAUNCH_PERFECT_MAX) {
-      return {
-        title: 'Depart brutal',
-        body: "Trop de pression : gros saut, mais garde le controle a l'atterrissage.",
-        color: 0xffd36a,
-        chargeBonus: 0.04,
-        speedBonus: 70,
-        rocketPercent: 4,
-      };
-    }
-
-    if (charge > 0.48) {
-      return {
-        title: 'Bon depart',
-        body: "Garde l'elan, double-saute, rebondis avec les bottes et surveille l'altitude.",
-        color: COLORS.green,
-        chargeBonus: 0.03,
-        speedBonus: 60,
-        rocketPercent: 0,
-      };
-    }
-
-    return {
-      title: 'Depart court',
-      body: 'Recharge plus longtemps pour viser la zone verte et gagner un vrai bonus.',
-      color: 0xff5b46,
-      chargeBonus: 0,
-      speedBonus: 0,
-      rocketPercent: 0,
     };
   }
 
@@ -505,21 +360,6 @@ export class RunScene extends Phaser.Scene {
     const snap = this.titan.getSnapshot();
     this.stats.distance = this.titan.getDistanceMeters();
     this.stats.maxSpeed = Math.max(this.stats.maxSpeed, Math.abs(snap.vx));
-  }
-
-  private handleStall(dt: number): boolean {
-    const snap = this.titan.getSnapshot();
-    const stopped = snap.grounded && this.stats.distance > 2.5 && Math.abs(snap.vx) < 24 && Math.abs(snap.vy) < 8;
-    this.stallTimer = stopped ? this.stallTimer + dt : 0;
-
-    if (this.stallTimer < 1.1) {
-      return false;
-    }
-
-    this.stats.combo = 0;
-    this.nextOverdriveCombo = 6;
-    this.finishRun('stalled', 480);
-    return true;
   }
 
   private handleMilestones(): void {
@@ -807,84 +647,18 @@ export class RunScene extends Phaser.Scene {
     this.groundGraphics.clear();
     this.groundGraphics.fillStyle(0x071009, 1);
     this.groundGraphics.fillRect(viewX, top, width, GAME_HEIGHT - top + 80);
-    this.groundGraphics.fillStyle(0x123017, 0.9);
+    this.groundGraphics.fillStyle(0x111707, 0.94);
     for (let x = startX; x < endX; x += 96) {
       const crest = top + Math.sin(x * 0.013) * 7 + Math.sin(x * 0.031) * 5;
       this.groundGraphics.fillTriangle(x, top + 34, x + 48, crest, x + 96, top + 34);
     }
-    this.groundGraphics.lineStyle(3, COLORS.green, 0.28);
+    this.groundGraphics.lineStyle(3, COLORS.red, 0.34);
     this.groundGraphics.lineBetween(viewX, top, viewX + width, top);
-    this.groundGraphics.lineStyle(2, 0xffd36a, 0.12);
-    for (let x = startX; x < endX; x += 144) {
+    this.groundGraphics.lineStyle(2, 0xffd36a, 0.2);
+    for (let x = startX; x < endX; x += 132) {
       const y = top + 38 + Math.sin(x * 0.021) * 10;
-      this.groundGraphics.lineBetween(x, y, x + 62, y + 18);
-      this.groundGraphics.lineBetween(x + 62, y + 18, x + 112, y + 5);
+      this.groundGraphics.lineBetween(x, y, x + 44, y + 22);
     }
-    this.drawGroundLures(startX, endX, top);
-  }
-
-  private drawGroundLures(startX: number, endX: number, top: number): void {
-    const spacing = 1500;
-    const lureStart = Math.floor(startX / spacing) * spacing;
-    for (let baseX = lureStart; baseX < endX + spacing; baseX += spacing) {
-      const seed = this.groundHash(baseX);
-      if (seed < 0.58) {
-        continue;
-      }
-
-      const typeSeed = this.groundHash(baseX + 19.7);
-      const x = baseX + 180 + seed * 360;
-      const y = top + 42 + Math.sin(baseX * 0.017) * 8;
-      if (typeSeed < 0.62) {
-        this.drawCableLure(x, y, typeSeed);
-      } else {
-        this.drawRemoteLure(x, y + 4, typeSeed);
-      }
-    }
-  }
-
-  private drawCableLure(x: number, y: number, seed: number): void {
-    const length = 118 + seed * 76;
-    const loopX = x + length * 0.42;
-    this.groundGraphics.lineStyle(8, 0x050505, 0.9);
-    this.groundGraphics.lineBetween(x, y + 15, x + length * 0.32, y + 6);
-    this.groundGraphics.strokeCircle(loopX, y + 16, 23 + seed * 8);
-    this.groundGraphics.lineBetween(loopX + 24, y + 18, x + length, y + 7);
-    this.groundGraphics.lineStyle(3, seed < 0.28 ? 0xff3d3d : 0x8cfffb, 0.82);
-    this.groundGraphics.lineBetween(x + 3, y + 15, x + length * 0.32, y + 7);
-    this.groundGraphics.strokeCircle(loopX, y + 16, 18 + seed * 6);
-    this.groundGraphics.lineBetween(loopX + 20, y + 18, x + length - 8, y + 8);
-    this.groundGraphics.fillStyle(0x202020, 1);
-    this.groundGraphics.fillRoundedRect(x + length - 8, y - 2, 34, 22, 5);
-    this.groundGraphics.fillStyle(0xd9d9d9, 1);
-    this.groundGraphics.fillRect(x + length + 22, y + 3, 12, 4);
-    this.groundGraphics.fillRect(x + length + 22, y + 12, 12, 4);
-    this.groundGraphics.fillStyle(0xffd36a, 0.2);
-    this.groundGraphics.fillEllipse(loopX, y + 16, 92, 22);
-  }
-
-  private drawRemoteLure(x: number, y: number, seed: number): void {
-    const width = 84 + seed * 18;
-    this.groundGraphics.fillStyle(0x05080b, 0.92);
-    this.groundGraphics.fillRoundedRect(x, y, width, 36, 8);
-    this.groundGraphics.lineStyle(3, 0x8cfffb, 0.34);
-    this.groundGraphics.strokeRoundedRect(x, y, width, 36, 8);
-    this.groundGraphics.fillStyle(0x1b2630, 1);
-    this.groundGraphics.fillRoundedRect(x + 10, y + 8, width * 0.34, 20, 5);
-    this.groundGraphics.fillStyle(0xff5b46, 0.92);
-    this.groundGraphics.fillCircle(x + width - 18, y + 12, 6);
-    this.groundGraphics.fillStyle(0x62ff52, 0.82);
-    this.groundGraphics.fillCircle(x + width - 34, y + 24, 5);
-    this.groundGraphics.fillStyle(0xffd36a, 0.8);
-    this.groundGraphics.fillCircle(x + width - 17, y + 25, 4);
-    this.groundGraphics.lineStyle(2, 0xecfff0, 0.3);
-    this.groundGraphics.lineBetween(x + 15, y + 14, x + 29, y + 14);
-    this.groundGraphics.lineBetween(x + 22, y + 8, x + 22, y + 22);
-  }
-
-  private groundHash(value: number): number {
-    const raw = Math.sin(value * 12.9898 + 78.233) * 43758.5453;
-    return raw - Math.floor(raw);
   }
 
   private drawMilestoneBeacons(): void {
@@ -899,7 +673,7 @@ export class RunScene extends Phaser.Scene {
         continue;
       }
 
-      const beaconY = SPACE_Y + 48;
+      const beaconY = GROUND_Y - 330;
       const pulse = 0.62 + Math.sin(this.time.now / 180) * 0.2;
       this.platformGraphics.lineStyle(3, milestone.color, pulse);
       this.platformGraphics.lineBetween(x, beaconY, x, GROUND_Y - 36);
@@ -920,60 +694,6 @@ export class RunScene extends Phaser.Scene {
 
   private getBiomeIndex(x: number): number {
     return Math.floor(Math.max(0, x) / 2200) % 4;
-  }
-
-  private drawLaunchMeter(): void {
-    this.launchGraphics.clear();
-    if (!this.launchCharging) {
-      return;
-    }
-
-    const ratio = clamp(this.launchCharge / LAUNCH_CHARGE_SECONDS, 0, 1);
-    const grade = this.getLaunchGrade(ratio);
-    const x = START_X - 102;
-    const y = GROUND_Y - 252;
-    const width = 260;
-    const barW = width - 18;
-    const pulse = 0.72 + Math.sin(this.time.now / 95) * 0.18;
-    const perfectX = x + 9 + barW * LAUNCH_PERFECT_MIN;
-    const perfectW = barW * (LAUNCH_PERFECT_MAX - LAUNCH_PERFECT_MIN);
-    const arrowBaseX = START_X + 18;
-    const arrowBaseY = GROUND_Y - 50;
-    const arrowLength = 174 + ratio * 220;
-    const arrowLift = 58 + ratio * 145;
-
-    this.launchGraphics.fillStyle(0xffd36a, 0.08 + ratio * 0.12);
-    this.launchGraphics.fillCircle(START_X, GROUND_Y - 18, 42 + ratio * 38);
-    this.launchGraphics.lineStyle(5, grade.color, 0.35 + ratio * 0.35);
-    this.launchGraphics.lineBetween(arrowBaseX, arrowBaseY, arrowBaseX + arrowLength, arrowBaseY - arrowLift);
-    this.launchGraphics.fillStyle(grade.color, 0.72);
-    this.launchGraphics.fillTriangle(
-      arrowBaseX + arrowLength + 16,
-      arrowBaseY - arrowLift - 6,
-      arrowBaseX + arrowLength - 12,
-      arrowBaseY - arrowLift - 18,
-      arrowBaseX + arrowLength - 4,
-      arrowBaseY - arrowLift + 16,
-    );
-
-    this.launchGraphics.fillStyle(0x041108, 0.92);
-    this.launchGraphics.fillRoundedRect(x, y, width, 34, 12);
-    this.launchGraphics.lineStyle(2, COLORS.green, 0.58);
-    this.launchGraphics.strokeRoundedRect(x, y, width, 34, 12);
-    this.launchGraphics.fillStyle(0x0f2f18, 1);
-    this.launchGraphics.fillRoundedRect(x + 9, y + 10, barW, 14, 7);
-    this.launchGraphics.fillStyle(0x8cfffb, 0.25 + pulse * 0.28);
-    this.launchGraphics.fillRoundedRect(perfectX, y + 8, perfectW, 18, 9);
-    this.launchGraphics.fillStyle(grade.color, 0.95);
-    this.launchGraphics.fillRoundedRect(x + 9, y + 10, barW * ratio, 14, 7);
-    this.launchGraphics.lineStyle(3, grade.color, 0.85);
-    this.launchGraphics.lineBetween(x + 9 + barW * ratio, y + 5, x + 9 + barW * ratio, y + 30);
-
-    for (let i = 0; i < 5; i += 1) {
-      const lit = ratio >= (i + 1) / 5;
-      this.launchGraphics.fillStyle(lit ? grade.color : COLORS.green, lit ? 0.9 : 0.18);
-      this.launchGraphics.fillCircle(x + 28 + i * 48, y + 52, lit ? 8 : 6);
-    }
   }
 
   private syncEntitySprites(time: number): void {
@@ -1003,12 +723,6 @@ export class RunScene extends Phaser.Scene {
   }
 
   private updateHudText(): void {
-    if (this.launchCharging) {
-      const charge = Math.round(clamp(this.launchCharge / LAUNCH_CHARGE_SECONDS, 0, 1) * 100);
-      this.hudText.setText(`charge\n${charge}%`);
-      return;
-    }
-
     const nextDistance = Math.ceil(this.getNextGoalDistance());
     const nextLine = nextDistance > 0 ? `${this.getNextGoalLabel()} ${nextDistance}m` : 'Signal final';
     this.hudText.setText(`${this.stats.distance.toFixed(1)} m\ncombo x${this.stats.combo}\n${nextLine}`);
@@ -1019,7 +733,7 @@ export class RunScene extends Phaser.Scene {
     const hud: HudState = {
       distance: this.stats.distance,
       combo: this.stats.combo,
-      speedPercent: clamp(Math.abs(snap.vx) / (this.playerStats.topSpeed + 580) * 100, 0, 100),
+      speedPercent: clamp(Math.abs(snap.vx) / (this.playerStats.topSpeed + 320) * 100, 0, 100),
       jumpsLeft: snap.grounded ? this.playerStats.maxJumps : snap.jumpsLeft,
       maxJumps: this.playerStats.maxJumps,
       rocketPercent: clamp((snap.rocketFuel / this.playerStats.rocketMax) * 100, 0, 100),
@@ -1051,7 +765,6 @@ export class RunScene extends Phaser.Scene {
           `jumps left: ${snap.jumpsLeft}`,
           `rocket: ${snap.rocketFuel.toFixed(1)} / ${this.playerStats.rocketMax}`,
           `bounce: ${this.playerStats.bouncePower.toFixed(0)}`,
-          `space: ${snap.spaceExposure.toFixed(2)} / suit ${this.playerStats.hasSpaceSuit}`,
           `story: ${this.stats.storyEvents}/${RUN_MILESTONES.length}`,
           `platforms: ${this.chunk.platforms.length}`,
           `entities: ${this.chunk.entities.length}`,
@@ -1245,23 +958,6 @@ export class RunScene extends Phaser.Scene {
     this.particles.push({ shape, vx, vy, life, max: life });
   }
 
-  private spawnLaunchSparks(charge: number): void {
-    const snap = this.titan.getSnapshot();
-    const count = 1 + Math.floor(charge * 3);
-    const color = this.getLaunchGrade(charge).color;
-
-    for (let i = 0; i < count; i += 1) {
-      this.createParticle(
-        snap.x - 44 + Math.random() * 26,
-        snap.y + snap.h - 18 + Math.random() * 20,
-        -120 - Math.random() * (140 + charge * 180),
-        -80 - Math.random() * (120 + charge * 180),
-        color,
-        0.2 + Math.random() * 0.18,
-      );
-    }
-  }
-
   private updateParticles(dt: number): void {
     for (let i = this.particles.length - 1; i >= 0; i -= 1) {
       const particle = this.particles[i];
@@ -1307,41 +1003,25 @@ export class RunScene extends Phaser.Scene {
     }
   }
 
-  private finishRun(forcedReason?: RunSummary['finishReason'], delayMs = 0): void {
+  private finishRun(): void {
     if (this.ended) {
       return;
     }
 
     this.ended = true;
-    const finishReason: RunSummary['finishReason'] = forcedReason ?? (this.titan.isLostInSpace() ? 'space' : 'fall');
-    if (finishReason === 'stalled') {
-      this.titan.stop();
-    } else {
-      this.titan.knockOut();
-    }
+    const finishReason: RunSummary['finishReason'] = 'fall';
+    this.titan.knockOut();
     soundSystem.finish();
-    if (finishReason === 'space') {
-      this.game.events.emit(GameEvents.Message, {
-        title: "Perdu dans l'espace",
-        body: 'La tenue cosmonaute protege Titan quand la gravite devient trop faible.',
-      });
-    } else if (finishReason === 'stalled') {
-      this.game.events.emit(GameEvents.Message, {
-        title: 'Titan a cale',
-        body: "Plus assez de vitesse : relance plus fort, prends une rampe ou garde l'elan avec la rocket.",
-      });
-    }
+    this.game.events.emit(GameEvents.Message, {
+      title: 'Chute dans le vide',
+      body: 'Saute plus tot ou garde un peu de rocket pour corriger la prochaine trajectoire.',
+    });
     const summary: RunSummary = saveSystem.recordRun(this.stats, this.seed, finishReason);
     this.game.events.emit(GameEvents.SaveChanged, saveSystem.getSnapshot());
     const showResult = () => {
       this.game.events.emit(GameEvents.RunFinished, summary);
       this.scene.start('ResultScene', { summary });
     };
-
-    if (delayMs > 0) {
-      this.time.delayedCall(delayMs, showResult);
-      return;
-    }
 
     showResult();
   }

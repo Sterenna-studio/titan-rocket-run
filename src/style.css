@@ -73,17 +73,25 @@ p { margin: 5px 0 0; color: var(--muted); }
 .panel h2 { margin: 10px 0 8px; font-size: 17px; letter-spacing: 0; }
 .controls {
   display: grid;
-  grid-template-columns: repeat(2, minmax(34px, auto)) minmax(0, 1fr);
+  gap: 7px;
+  color: var(--muted);
+}
+.controlRow {
+  display: grid;
+  grid-template-columns: minmax(86px, auto) minmax(0, 1fr);
   gap: 7px;
   align-items: center;
-  color: var(--muted);
+}
+.controlKeys {
+  display: flex;
+  gap: 7px;
+  align-items: center;
 }
 kbd {
   min-width: 34px; text-align: center; padding: 5px 8px; border-radius: 8px;
   background: #111; color: white; border: 1px solid rgba(255,255,255,.22);
   box-shadow: inset 0 -2px 0 rgba(0,0,0,.4);
 }
-.controls span { grid-column: span 1; }
 .tutorial {
   display: grid;
   gap: 8px;
@@ -245,7 +253,7 @@ meter { width: calc(100% - 46px); height: 14px; vertical-align: middle; }
   bottom: 16px;
   z-index: 4;
   display: none;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: end;
   gap: 16px;
   pointer-events: none;
@@ -629,9 +637,9 @@ meter { width: calc(100% - 46px); height: 14px; vertical-align: middle; }
   .sidePanel { padding: 10px; }
   .rankPanel { padding: 10px; }
   .controls {
-    grid-template-columns: repeat(2, minmax(32px, auto)) minmax(0, 1fr);
     font-size: 13px;
   }
+  .controlRow { grid-template-columns: minmax(78px, auto) minmax(0, 1fr); }
   .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .card { padding: 18px; }
   .snikyCard { padding: 18px; }

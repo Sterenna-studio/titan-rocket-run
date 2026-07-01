@@ -2,7 +2,7 @@
   "name": "titan-rocket-run",
   "version": "0.1.0",
   "private": true,
-  "description": "Runner-platformer Phaser 3: Titan garde son elan, enchaine les plateformes et booste a la rocket.",
+  "description": "Runner Phaser 3: Titan avance, saute les gaps et booste court a la rocket.",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "tsc && vite build",

@@ -100,7 +100,6 @@ export interface PlayerSnapshot {
   rocketFuel: number;
   hurt: number;
   invuln: number;
-  spaceExposure: number;
 }
 
 export interface RunStats {
@@ -122,7 +121,7 @@ export interface RunSummary extends RunStats {
   isRecord: boolean;
   badge: string;
   seed: string;
-  finishReason: 'fall' | 'space' | 'stalled';
+  finishReason: 'fall';
 }
 
 export interface LeaderboardEntry {
@@ -153,7 +152,7 @@ export interface UiMessage {
 }
 
 export interface VirtualInput {
-  key: 'a' | 'd' | 'space' | 'shift' | 'strideLeft' | 'strideRight' | 'r';
+  key: 'a' | 'd' | 'space' | 'shift' | 'r';
   down: boolean;
 }
 

@@ -23,12 +23,12 @@ export class PlatformGenerator {
     const baseWidth = this.lerp(difficulty.minWidth, difficulty.maxWidth, this.random());
     const width = this.getWidth(baseWidth, difficulty.value, kind);
     const noise = this.noise2D(id * 0.23, 0.4);
-    const stepPressure = id > 5 && id % 4 === 0 ? 74 + difficulty.value * 104 : 0;
-    const routeSeparation = id > 3 ? difficulty.value * 54 + (kind === 'path' ? 82 : kind === 'ramp' ? 44 : 0) : 0;
+    const stepPressure = id > 8 && id % 5 === 0 ? 32 + difficulty.value * 42 : 0;
+    const routeSeparation = kind === 'path' ? 54 : 0;
     const rawY = clamp(
-      previous.y + noise * difficulty.verticalRange + (this.random() - 0.5) * 165,
-      430,
-      GROUND_Y - 56,
+      previous.y + noise * difficulty.verticalRange + (this.random() - 0.5) * 34,
+      GROUND_Y - 230,
+      GROUND_Y - 42,
     );
     const y = this.getRouteY(rawY, previous.y, kind);
 
@@ -45,14 +45,14 @@ export class PlatformGenerator {
   decorate(platform: PlatformData): EntityDraft[] {
     const difficulty = this.curve.sample(platform.x);
     const entities: EntityDraft[] = [];
-    const boneCount = platform.kind === 'path' ? 2 + Math.floor(this.random() * 3) : 1 + Math.floor(this.random() * 3);
+    const boneCount = platform.kind === 'path' ? 3 + Math.floor(this.random() * 3) : 1 + Math.floor(this.random() * 2);
 
     for (let i = 0; i < boneCount; i += 1) {
       const floating = this.random() < (platform.kind === 'path' ? difficulty.floatingBoneChance * 0.58 : difficulty.floatingBoneChance);
       entities.push({
         type: 'bone',
         x: platform.x + 55 + this.random() * Math.max(60, platform.w - 110),
-        y: platform.y - (floating ? 170 + this.random() * 190 : 66),
+        y: platform.y - (floating ? 118 + this.random() * 72 : 62),
         r: 19,
         value: floating ? 5 : 3,
         bob: this.random() * Math.PI * 2,
@@ -101,11 +101,11 @@ export class PlatformGenerator {
 
   private getRouteY(rawY: number, previousY: number, kind: PlatformKind): number {
     if (kind === 'path') {
-      return clamp(previousY + (this.random() - 0.42) * 90, GROUND_Y - 215, GROUND_Y - 38);
+      return clamp(previousY + (this.random() - 0.5) * 38, GROUND_Y - 220, GROUND_Y - 38);
     }
 
     if (kind === 'ramp') {
-      return clamp(rawY + 70 + this.random() * 90, 520, GROUND_Y - 44);
+      return clamp(rawY + 20 + this.random() * 28, GROUND_Y - 220, GROUND_Y - 44);
     }
 
     return rawY;

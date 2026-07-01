@@ -1,6 +1,6 @@
 # Titan Rocket Run
 
-Runner-platformer autour de Titan, migré du prototype HTML Canvas vanilla vers une base Vite + TypeScript + Phaser 3.
+Runner autour de Titan, migré du prototype HTML Canvas vanilla vers une base Vite + TypeScript + Phaser 3.
 
 ## Stack
 
@@ -33,23 +33,20 @@ Le workflow OVH installe les dépendances avec `npm ci`, lance `npm run build`, 
 
 ## Gameplay
 
-- `A` / `D` ou flèches gauche/droite : déplacement et maintien de l'élan.
-- Au depart : maintenir `Espace`, puis relacher pour charger le premier saut et partir plus ou moins loin.
-- `Espace` en run : saut, avec double saut de base.
-- `Shift` : rocket boost en l'air.
+- Titan avance automatiquement : la run commence directement.
+- `A` / `D` ou flèches gauche/droite : correction légère de trajectoire.
+- `Espace` : saut, avec air-jump de base.
+- `Shift` : boost rocket court, au sol comme en l'air.
 - `R` : relancer la run avec la même seed.
-- En tactile : spammer `Patte G` / `Patte D` pour redonner de l'elan au sol.
-- Chute dans le vide : fin de run.
+- En tactile : boutons `Saut`, `Rocket` et `R`.
+- Chute sous la piste : fin de run.
 - Les os donnent des bonus, montent le combo et rendent un peu de rocket.
-- Quelques cables, telecommandes et petits objets au sol donnent envie a Titan de s'arreter : courir au sol draine 10% de vitesse par metre.
-- Les bottes double saut augmentent les air-jumps et leur hauteur.
-- Les bottes rebondissantes permettent de maintenir `Espace` en atterrissant pour repartir vers le haut.
-- Le ciel haut réduit la gravité. Dans l'espace, Titan est perdu sans la tenue cosmonaute.
-- Les plateformes changent de teinte par biome de distance, ce qui rend les gros départs chargés lisibles.
+- Les plateformes restent sur une route basse et lisible ; la difficulté vient surtout du timing des gaps.
+- Les upgrades renforcent la vitesse automatique, les sauts, le contrôle en l'air, l'amorti et la rocket.
 - Des lieux fixes déclenchent une mini-histoire avec récompenses immédiates : os, rocket, boost de vitesse, bannière et balise lumineuse.
 - Les combos rendent les os plus rentables toutes les 4 prises, tant que Titan garde son elan.
 
-Le feeling inclut coyote time, jump buffer, saut variable, friction au sol, air control et caméra avec anticipation vers l'avant.
+Le feeling inclut coyote time, jump buffer, saut variable, air control léger et caméra avec anticipation vers l'avant.
 
 ## Debug
 
@@ -80,13 +77,13 @@ src/
   scenes/
     BootScene.ts           # charge manifest + frames Titan
     MenuScene.ts           # scène menu légère
-    RunScene.ts            # boucle runner-platformer
+    RunScene.ts            # boucle runner simple
     ResultScene.ts         # scène résultat légère
   player/
     TitanController.ts     # mouvement, sauts, rocket, collisions plateforme
     TitanAnimations.ts     # chargement des frames et animations Phaser
   world/
-    PlatformGenerator.ts   # génération seedée d'une plateforme et de son décor
+    PlatformGenerator.ts   # génération seedée d'une piste basse et de ses os
     ChunkManager.ts        # fenêtre active de plateformes/entities
     DifficultyCurve.ts     # progression de difficulté
   systems/
@@ -107,9 +104,9 @@ src/
 
 - plateformes normales ;
 - plateformes boost ;
-- os au sol ou en hauteur ;
-- appats de sol visibles dans le decor de premier plan ;
-- gaps, largeurs et hauteurs modulés par `DifficultyCurve`.
+- plateformes longues de respiration ;
+- os au sol ou légèrement au-dessus de la trajectoire ;
+- gaps, largeurs et faibles variations de hauteur modulés par `DifficultyCurve`.
 
 La structure est volontairement simple pour pouvoir ajouter ensuite des chunks faits main, des biomes ou des règles de placement plus spécifiques sans réécrire la scène principale.
 

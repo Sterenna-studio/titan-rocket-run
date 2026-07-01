@@ -9,21 +9,12 @@ export const START_X = 145;
 export const GROUND_Y = 1220;
 export const CRASH_GROUND_Y = GAME_HEIGHT - 84;
 export const WORLD_SCALE = 0.09;
-export const DEATH_Y = 1760;
+export const DEATH_Y = 1580;
 export const GRAVITY = 1900;
 export const WORLD_AHEAD = 2200;
 export const WORLD_BEHIND = 650;
 export const SKY_Y = 590;
 export const SPACE_Y = 170;
-export const SPACE_LOST_SECONDS = 1.1;
-export const LAUNCH_CHARGE_SECONDS = 1.75;
-export const LAUNCH_PERFECT_MIN = 0.72;
-export const LAUNCH_PERFECT_MAX = 0.9;
-export const LAUNCH_MIN_VX = 420;
-export const LAUNCH_MAX_VX = 3600;
-export const LAUNCH_MIN_VY = 560;
-export const LAUNCH_MAX_VY = 1120;
-export const GROUND_SPEED_RETAIN_PER_METER = 0.9;
 
 export const PLAYER_WIDTH = 62;
 export const PLAYER_HEIGHT = 126;
@@ -46,14 +37,14 @@ export const COLORS = {
 };
 
 export const UPGRADE_DEFINITIONS: Record<UpgradeId, UpgradeDefinition> = {
-  shoes: { name: 'Chaussures', desc: "Acceleration et vitesse au sol.", base: 120, max: 8 },
-  ramp: { name: 'Bottes double saut', desc: 'Air-jumps plus hauts et plus nombreux.', base: 170, max: 8 },
-  bounce: { name: 'Bottes rebondissantes', desc: 'Maintiens saut en atterrissant pour rebondir.', base: 180, max: 8 },
-  rocket: { name: 'Rocket', desc: 'Boost horizontal avec Shift et trainee visuelle Titan.', base: 220, max: 8 },
+  shoes: { name: 'Allure', desc: 'Vitesse automatique plus stable.', base: 120, max: 8 },
+  ramp: { name: 'Saut', desc: 'Sauts plus hauts et air-jumps plus confortables.', base: 170, max: 8 },
+  bounce: { name: 'Amorti', desc: 'Rebond assiste sur les gros atterrissages.', base: 180, max: 8 },
+  rocket: { name: 'Rocket', desc: "Boost court avec Shift, au sol comme en l'air.", base: 220, max: 8 },
   missile: { name: 'Missile archive', desc: 'Ancien upgrade conserve pour compatibilite de sauvegarde.', base: 700, max: 0 },
-  cape: { name: 'Cape aero', desc: "Meilleur controle en l'air.", base: 160, max: 8 },
-  start: { name: 'Elan de depart', desc: 'Vitesse initiale augmentee.', base: 110, max: 8 },
-  suit: { name: 'Tenue cosmonaute', desc: "Survie dans l'espace.", base: 950, max: 1 },
+  cape: { name: 'Controle', desc: "Correction plus douce en l'air.", base: 160, max: 8 },
+  start: { name: 'Depart rapide', desc: 'Vitesse de base augmentee.', base: 110, max: 8 },
+  suit: { name: 'Stabilisateur', desc: 'Trajectoire plus calme et rocket plus genereuse.', base: 950, max: 1 },
 };
 
 export const GameEvents = {

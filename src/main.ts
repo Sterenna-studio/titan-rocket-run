@@ -59,7 +59,7 @@ renderLeaderboard();
 renderSave(saveSystem.getSnapshot());
 renderMessage({
   title: 'Pret ?',
-  body: "Charge ton depart, poursuis les signaux de Titan et ne traine pas au sol.",
+  body: 'Titan court tout seul : saute, booste court, ramasse les os et vise les signaux.',
 });
 
 ui.playBtn.addEventListener('click', () => requestStart());
@@ -156,14 +156,7 @@ function showResult(summary: RunSummary): void {
   ui.resOverdrives.textContent = `${summary.overdrives}`;
   ui.resSignals.textContent = `${summary.storyEvents}`;
   ui.resReward.textContent = `+${summary.reward}`;
-  ui.resTitle.textContent =
-    summary.finishReason === 'space'
-      ? "Perdu dans l'espace"
-      : summary.finishReason === 'stalled'
-        ? 'Titan a cale'
-        : summary.isRecord
-          ? 'Nouveau record !'
-          : 'Run termine';
+  ui.resTitle.textContent = summary.isRecord ? 'Nouveau record !' : 'Run termine';
   const badge = summary.storyEvents > 0 ? `${summary.badge || 'Route decouverte'} - ${summary.storyEvents} signal(s)` : summary.badge;
   ui.resBadge.textContent = badge;
   ui.resBadge.classList.toggle('hidden', !badge);
@@ -315,8 +308,6 @@ function bindTouchControls(): void {
     d: 'd',
     space: 'space',
     shift: 'shift',
-    strideLeft: 'strideLeft',
-    strideRight: 'strideRight',
     r: 'r',
   };
 

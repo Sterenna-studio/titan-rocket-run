@@ -10,7 +10,7 @@
     <header class="topbar">
       <div>
         <h1>Titan Rocket Run</h1>
-        <p>Platformer runner : vise le timing parfait au depart, prends de l'elan, double-saute, booste a la rocket et evite de trainer au sol.</p>
+        <p>Runner simple : Titan avance tout seul, saute les trous, booste court et ramasse les os sur la bonne ligne.</p>
       </div>
       <div class="records">
         <a class="assetLink" href="asset-browser.html">Assets</a>
@@ -24,20 +24,18 @@
       <aside class="panel sidePanel">
         <h2>Guidage Titan</h2>
         <div class="controls">
-          <kbd>A</kbd><kbd>D</kbd><span>se deplacer / garder l'elan</span>
-          <kbd>Espace</kbd><span>charger le depart / sauter / double-sauter</span>
-          <kbd>Shift</kbd><span>boost rocket en l'air</span>
-          <kbd>Patte G</kbd><kbd>Patte D</kbd><span>spammer pour courir en tactile</span>
-          <kbd>R</kbd><span>relancer</span>
+          <div class="controlRow"><span class="controlKeys"><kbd>A</kbd><kbd>D</kbd></span><span>corriger legerement la trajectoire</span></div>
+          <div class="controlRow"><span class="controlKeys"><kbd>Espace</kbd></span><span>sauter / air-jump</span></div>
+          <div class="controlRow"><span class="controlKeys"><kbd>Shift</kbd></span><span>boost rocket court</span></div>
+          <div class="controlRow"><span class="controlKeys"><kbd>R</kbd></span><span>relancer</span></div>
         </div>
 
         <h2>Tuto de Sniky</h2>
         <div class="tutorial">
           <b>Sniky, maitre de Titan, aka le bg beau gosse de la street</b>
-          <p>Charge le depart dans le vert, puis pense en trois temps : vitesse, angle, securite.</p>
-          <p>Au sol, Titan voit les cables et les telecommandes : il ralentit fort s'il traine trop longtemps.</p>
+          <p>Titan court tout seul. Ton job : sauter au bon moment et garder un peu de rocket pour sauver les sauts trop courts.</p>
+          <p>Les os dessinent souvent la trajectoire sure. Les signaux donnent une recharge et relancent la vitesse.</p>
           <p>Les gros combos declenchent un overdrive : rocket rechargee, vitesse bonus et os bonus.</p>
-          <p>Les upgrades coutent cher : ramasser les os flottants et toucher les signaux compte plus qu'avant.</p>
         </div>
 
         <h2>Boutique</h2>
@@ -57,10 +55,6 @@
           </div>
 
           <div class="touchControls" aria-label="Controles tactiles">
-            <div class="touchRun" aria-label="Spam course">
-              <button type="button" class="touchBtn touchStride" data-key="strideLeft">Patte G</button>
-              <button type="button" class="touchBtn touchStride" data-key="strideRight">Patte D</button>
-            </div>
             <div class="touchActions" aria-label="Actions">
               <button type="button" class="touchBtn touchJump" data-key="space">Saut</button>
               <button type="button" class="touchBtn touchRocket" data-key="shift">Rocket</button>
@@ -71,8 +65,8 @@
           <div id="snikyIntro" class="snikyIntro hidden" role="dialog" aria-modal="true" aria-labelledby="snikyIntroTitle">
             <div class="snikyCard">
               <p class="eyebrow">Tuto de Sniky</p>
-              <h2 id="snikyIntroTitle">Titan court mieux quand il ne s'arrete pas machouiller.</h2>
-              <p>Charge le depart dans le vert, vise les os et les signaux, puis quitte vite le sol. Sur tactile, spam Patte G / Patte D pour relancer Titan. Les rares cables et telecommandes en bas donnent envie a Titan de s'arreter : au sol, sa vitesse fond de 10% par metre.</p>
+              <h2 id="snikyIntroTitle">Titan court tout seul : garde-le sur la piste.</h2>
+              <p>Saute les trous, utilise la rocket seulement pour corriger une trajectoire trop courte, puis suis les os et les signaux lumineux pour rester dans le rythme.</p>
               <div class="snikyActions">
                 <button id="snikyClose" class="cta" type="button">Compris</button>
                 <button id="snikySkipForever" class="ghostBtn" type="button">Passer pour toujours</button>
@@ -83,11 +77,10 @@
           <div id="overlay" class="overlay">
             <div id="titleScreen" class="card">
               <h2 class="bigTitle">Titan Rocket Run</h2>
-              <p class="lead">Un runner-platformer nerveux : cale le depart dans la zone verte, garde la vitesse, ramasse les os et evite de trainer au sol.</p>
+              <p class="lead">Un runner direct : Titan avance, tu sautes les trous, tu boostes court et tu ramasses les os.</p>
               <div class="ctrlGrid">
-                <span><kbd>A</kbd><kbd>D</kbd> se deplacer / garder l'elan</span>
-                <span><kbd>Patte G</kbd><kbd>Patte D</kbd> spam course tactile</span>
-                <span><kbd>Espace</kbd> charger / sauter / double-sauter</span>
+                <span><kbd>A</kbd><kbd>D</kbd> corriger la trajectoire</span>
+                <span><kbd>Espace</kbd> sauter / air-jump</span>
                 <span><kbd>Shift</kbd> boost rocket</span>
                 <span><kbd>R</kbd> relancer</span>
               </div>
@@ -122,7 +115,7 @@
           </div>
         </div>
 
-        <div id="message" class="message"><b>Pret ?</b><br>Maintiens Espace, relache dans la zone verte, puis gere le crash d'atterrissage.</div>
+        <div id="message" class="message"><b>Pret ?</b><br>Titan court tout seul : saute, booste court et vise les os.</div>
       </section>
 
       <aside class="panel rankPanel">
