@@ -52,6 +52,18 @@ Le feeling inclut coyote time, jump buffer, saut variable, air control léger et
 
 La guideline de progression gameplay est dans [`docs/v1-gameplay-guideline.md`](docs/v1-gameplay-guideline.md). Elle cadre les prochaines etapes : seconde chance souterraine, lancement charge court, biomes bretons, obstacles vivants, distorsion de vitesse, controles configurables, manette et mobile.
 
+## Etat actuel V1
+
+La base actuelle est volontairement simple et propre avant de reintroduire les gros systemes :
+
+- nouvelle sauvegarde locale `titanRocketRunSaveV1`, separee des anciens prototypes ;
+- nouveau leaderboard local `titanRocketRunArcadeLeaderboardV1` ;
+- accueil Sniky pour les nouveaux joueurs, avec 130 os offerts pour acheter un premier upgrade ;
+- HUD global avec record, os, nombre de runs et signaux bretons debloques ;
+- progression par lieux bretons : Garage de Sniky, Remparts de Saint-Malo, Brume de Broceliande, Alignements de Carnac, Port de Brest, Signal des Monts d'Arree ;
+- chaque signal donne os, rocket et relance de vitesse pour rendre la progression plus lisible ;
+- la seconde chance souterraine, le lancement charge court, les obstacles vivants et les controles remappables restent dans la guideline V1, pas encore dans la boucle jouable.
+
 ## Debug
 
 - `F3` : afficher / masquer l'overlay debug.
