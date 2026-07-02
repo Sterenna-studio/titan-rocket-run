@@ -1,13 +1,14 @@
 import Phaser from 'phaser';
 import { COLORS, CRASH_GROUND_Y, GAME_HEIGHT, GAME_WIDTH, GROUND_Y, GameEvents, SKY_Y, TITAN_BOTTOM_PAD } from '../game/constants';
 import { defaultTitanFrame, scaleTitanSprite, titanAnimKey } from '../player/TitanAnimations';
+import { controlSettings } from '../systems/ControlSettings';
 import type { RunSummary } from '../types/game';
 
 export class ResultScene extends Phaser.Scene {
   private summary?: RunSummary;
 
   private startRun = (): void => {
-    this.scene.start('RunScene', { seed: this.makeSeed() });
+    this.scene.start('RunScene', { seed: this.makeSeed(), launchPower: 0.42 });
   };
 
   constructor() {
@@ -48,12 +49,18 @@ export class ResultScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.game.events.on(GameEvents.StartRun, this.startRun);
-    this.input.keyboard?.once('keydown-SPACE', this.startRun);
-    this.input.keyboard?.once('keydown-ENTER', this.startRun);
-    this.input.keyboard?.once('keydown-R', this.startRun);
+    this.input.keyboard?.on('keydown', this.handleKeyDown, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.game.events.off(GameEvents.StartRun, this.startRun);
+      this.input.keyboard?.off('keydown', this.handleKeyDown, this);
     });
+  }
+
+  private handleKeyDown(event: KeyboardEvent): void {
+    if (event.code === 'Enter' || controlSettings.matches('jump', event.code) || controlSettings.matches('restart', event.code)) {
+      event.preventDefault();
+      this.startRun();
+    }
   }
 
   private makeSeed(): string {

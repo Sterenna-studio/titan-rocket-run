@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import './style.css';
 import { createGameConfig } from './game/config';
 import { GameEvents } from './game/constants';
+import { controlSettings, type ControlAction } from './systems/ControlSettings';
 import { leaderboardSystem } from './systems/LeaderboardSystem';
 import { saveSystem } from './systems/SaveSystem';
 import { soundSystem } from './systems/SoundSystem';
@@ -27,6 +28,7 @@ const ui = {
   rocketMeter: byId('rocketMeter') as HTMLMeterElement,
   rocketText: byId('rocketText'),
   resetSave: byId('resetSave') as ButtonEl,
+  controlReset: byId('controlReset') as ButtonEl,
   muteBtn: byId('muteBtn') as ButtonEl,
   overlay: byId('overlay'),
   snikyIntro: byId('snikyIntro'),
@@ -55,9 +57,12 @@ const ui = {
 let soundMuted = false;
 let latestSummary: RunSummary | null = null;
 let scoreSubmitted = false;
+let resultAnimationId: number | null = null;
+let pendingControlAction: ControlAction | null = null;
 
 renderLeaderboard();
 renderSave(saveSystem.getSnapshot());
+renderControlBindings();
 renderMessage({
   title: 'Nouvelle save V1',
   body: 'Sniky t attend avec 130 os de depart. Choisis un premier upgrade puis suis les signaux bretons.',
@@ -110,6 +115,7 @@ game.events.on(GameEvents.Message, renderMessage);
 game.events.on(GameEvents.SaveChanged, (save: SaveData) => renderSave(save));
 
 bindTouchControls();
+bindControlConfig();
 bindAudioUnlock();
 showSnikyIntroIfNeeded();
 
@@ -143,6 +149,11 @@ function hideOverlay(): void {
 }
 
 function showResult(summary: RunSummary): void {
+  if (resultAnimationId !== null) {
+    window.cancelAnimationFrame(resultAnimationId);
+    resultAnimationId = null;
+  }
+
   latestSummary = summary;
   scoreSubmitted = false;
   renderSave(saveSystem.getSnapshot());
@@ -151,22 +162,51 @@ function showResult(summary: RunSummary): void {
   ui.titleScreen.classList.add('hidden');
   ui.resultScreen.classList.remove('hidden');
   ui.overlay.classList.remove('hidden');
-  ui.resScore.textContent = formatScore(leaderboardSystem.calculateScore(summary));
-  ui.resDist.textContent = `${summary.distance.toFixed(1)} m`;
-  ui.resSpeed.textContent = `${Math.round(summary.maxSpeed)}`;
-  ui.resJump.textContent = `${summary.jumps}`;
-  ui.resBones.textContent = `${summary.pickups} (+${summary.bonusBones})`;
-  ui.resLandings.textContent = `${summary.landed}`;
-  ui.resOverdrives.textContent = `${summary.overdrives}`;
-  ui.resSignals.textContent = `${summary.storyEvents}`;
-  ui.resReward.textContent = `+${summary.reward}`;
   ui.resTitle.textContent = summary.isRecord ? 'Nouveau record !' : 'Run termine';
-  const badge = summary.storyEvents > 0 ? `${summary.badge || 'Route decouverte'} - ${summary.storyEvents} signal(s)` : summary.badge;
-  ui.resBadge.textContent = badge;
-  ui.resBadge.classList.toggle('hidden', !badge);
-  ui.scoreForm.classList.remove('hidden');
+  ui.resBadge.classList.add('hidden');
+  ui.scoreForm.classList.add('hidden');
   ui.scoreSubmit.textContent = 'Inscrire';
-  updateScoreSubmitState();
+  renderResultProgress(summary, 0);
+  animateResult(summary);
+}
+
+function animateResult(summary: RunSummary): void {
+  const duration = 1300;
+  const start = window.performance.now();
+
+  const tick = (now: number) => {
+    const raw = Math.min(1, (now - start) / duration);
+    const progress = 1 - Math.pow(1 - raw, 3);
+    renderResultProgress(summary, progress);
+
+    if (raw < 1) {
+      resultAnimationId = window.requestAnimationFrame(tick);
+      return;
+    }
+
+    resultAnimationId = null;
+    renderResultProgress(summary, 1);
+    const badge = summary.storyEvents > 0 ? `${summary.badge || 'Route decouverte'} - ${summary.storyEvents} signal(s)` : summary.badge;
+    ui.resBadge.textContent = badge;
+    ui.resBadge.classList.toggle('hidden', !badge);
+    ui.scoreForm.classList.remove('hidden');
+    updateScoreSubmitState();
+  };
+
+  resultAnimationId = window.requestAnimationFrame(tick);
+}
+
+function renderResultProgress(summary: RunSummary, progress: number): void {
+  const score = leaderboardSystem.calculateScore(summary);
+  ui.resScore.textContent = formatScore(score * progress);
+  ui.resDist.textContent = `${(summary.distance * progress).toFixed(1)} m`;
+  ui.resSpeed.textContent = `${Math.round(summary.maxSpeed * progress)}`;
+  ui.resJump.textContent = `${Math.round(summary.jumps * progress)}`;
+  ui.resBones.textContent = `${Math.round(summary.pickups * progress)} (+${Math.round(summary.bonusBones * progress)})`;
+  ui.resLandings.textContent = `${Math.round(summary.landed * progress)}`;
+  ui.resOverdrives.textContent = `${Math.round(summary.overdrives * progress)}`;
+  ui.resSignals.textContent = `${Math.round(summary.storyEvents * progress)}`;
+  ui.resReward.textContent = `+${Math.round(summary.reward * progress)}`;
 }
 
 function updateHud(hud: HudState): void {
@@ -204,6 +244,80 @@ function renderSave(save: SaveData): void {
   ui.runs.textContent = `${save.runs}`;
   ui.signals.textContent = `${Object.values(save.milestones).filter(Boolean).length}`;
   renderShop();
+}
+
+function bindControlConfig(): void {
+  document.querySelectorAll<HTMLButtonElement>('.bindBtn[data-action]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const action = getControlAction(button.dataset.action);
+      if (!action) {
+        return;
+      }
+
+      pendingControlAction = action;
+      renderControlBindings();
+      button.blur();
+    });
+  });
+
+  ui.controlReset.addEventListener('click', () => {
+    pendingControlAction = null;
+    controlSettings.reset();
+    renderControlBindings();
+    renderMessage({ title: 'Touches reset', body: 'Le clavier revient aux controles V1 par defaut.' });
+    ui.controlReset.blur();
+  });
+
+  window.addEventListener(
+    'keydown',
+    (event) => {
+      if (!pendingControlAction) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      const action = pendingControlAction;
+      controlSettings.setPrimary(action, event.code, event.key);
+      pendingControlAction = null;
+      renderControlBindings();
+      renderMessage({ title: 'Touche modifiee', body: `${getControlActionLabel(action)} : ${controlSettings.getLabel(action)}.` });
+    },
+    true,
+  );
+}
+
+function renderControlBindings(): void {
+  document.querySelectorAll<HTMLButtonElement>('.bindBtn[data-action]').forEach((button) => {
+    const action = getControlAction(button.dataset.action);
+    if (!action) {
+      return;
+    }
+
+    button.classList.toggle('isListening', pendingControlAction === action);
+    const label = button.querySelector<HTMLElement>('[data-bind-label]');
+    if (label) {
+      label.textContent = pendingControlAction === action ? 'Appuie touche' : controlSettings.getLabel(action);
+    }
+  });
+}
+
+function getControlAction(value: string | undefined): ControlAction | undefined {
+  if (value === 'left' || value === 'right' || value === 'jump' || value === 'rocket' || value === 'restart') {
+    return value;
+  }
+
+  return undefined;
+}
+
+function getControlActionLabel(action: ControlAction): string {
+  return {
+    left: 'Gauche',
+    right: 'Droite',
+    jump: 'Saut',
+    rocket: 'Rocket',
+    restart: 'Retry',
+  }[action];
 }
 
 function renderLeaderboard(highlightId = ''): void {

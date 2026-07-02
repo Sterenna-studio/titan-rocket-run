@@ -87,6 +87,47 @@ p { margin: 5px 0 0; color: var(--muted); }
   gap: 7px;
   align-items: center;
 }
+.controlConfig {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  margin-bottom: 12px;
+}
+.bindBtn {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  min-height: 58px;
+  padding: 8px;
+  border: 1px solid rgba(111,255,126,.24);
+  border-radius: 10px;
+  background: rgba(255,255,255,.05);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+.bindBtn span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+.bindBtn b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bindBtn.isListening {
+  border-color: var(--amber);
+  background: rgba(255,211,106,.13);
+}
+.ghostBtn.compact {
+  grid-column: 1 / -1;
+  margin-top: 0;
+  padding: 9px 10px;
+  font-size: 13px;
+}
 kbd {
   min-width: 34px; text-align: center; padding: 5px 8px; border-radius: 8px;
   background: #111; color: white; border: 1px solid rgba(255,255,255,.22);

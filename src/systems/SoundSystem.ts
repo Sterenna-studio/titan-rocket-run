@@ -76,6 +76,11 @@ export class SoundSystem {
     this.tone({ freq: 260, slideTo: 420, duration: 0.09, type: 'sawtooth', gain: 0.07 });
   }
 
+  hit(): void {
+    this.tone({ freq: 210, slideTo: 118, duration: 0.13, type: 'square', gain: 0.09 });
+    window.setTimeout(() => this.tone({ freq: 72, duration: 0.09, type: 'triangle', gain: 0.06 }), 42);
+  }
+
   launch(charge: number): void {
     this.tone({
       freq: 220 + charge * 180,

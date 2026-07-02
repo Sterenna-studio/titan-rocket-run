@@ -13,6 +13,7 @@ import {
 import type {
   CollisionCircle,
   InputState,
+  ObstacleEntityKind,
   PlatformData,
   PlayerSnapshot,
   PlayerStats,
@@ -33,6 +34,7 @@ export class TitanController {
   private speedBonus = 0;
   private speedStretch = 0;
   private landingSquash = 0;
+  private launchWobble = 0;
 
   constructor(private readonly scene: Phaser.Scene, stats: PlayerStats) {
     this.stats = stats;
@@ -53,6 +55,7 @@ export class TitanController {
     this.speedBonus = 0;
     this.speedStretch = 0;
     this.landingSquash = 0;
+    this.launchWobble = 0;
     this.currentAnimation = 'idle';
     this.play('run');
     this.syncSprite();
@@ -68,6 +71,7 @@ export class TitanController {
     this.state.invuln = Math.max(0, this.state.invuln - dt);
     this.speedStretch = Math.max(0, this.speedStretch - dt * 3.2);
     this.landingSquash = Math.max(0, this.landingSquash - dt * 5.8);
+    this.launchWobble = Math.max(0, this.launchWobble - dt * 1.8);
 
     this.facing = 1;
     this.applyRunnerSpeed(dt, input);
@@ -170,6 +174,56 @@ export class TitanController {
     this.speedStretch = Math.max(this.speedStretch, clamp(speedBoost / 2600, 0.04, 0.13));
     this.state.vx += speedBoost * 0.18;
     this.syncSprite();
+  }
+
+  applyChargedLaunch(power: number, unstable = false): void {
+    const charge = clamp(power, 0, 1);
+    const boost = 110 + charge * 520 + (unstable ? 110 : 0);
+    this.state.vx += boost;
+    this.speedBonus = Math.max(this.speedBonus, boost * 0.72);
+    this.speedStretch = Math.max(this.speedStretch, 0.08 + charge * 0.09);
+    this.landingSquash = Math.max(this.landingSquash, 0.1);
+    this.launchWobble = unstable ? 1 : 0;
+    this.state.rocketFuel = unstable ? Math.max(this.state.rocketFuel, this.stats.rocketMax * 0.72) : this.stats.rocketMax;
+    this.syncSprite();
+  }
+
+  hitObstacle(kind: ObstacleEntityKind): boolean {
+    if (this.state.invuln > 0) {
+      return false;
+    }
+
+    const severity =
+      kind === 'menhir'
+        ? 1
+        : kind === 'granny'
+          ? 0.78
+          : kind === 'cable'
+            ? 0.62
+            : kind === 'seagull'
+              ? 0.44
+              : 0.32;
+    const penalty = 150 + severity * 300;
+    this.state.vx = Math.max(this.stats.startVelocity * 0.66, this.state.vx - penalty);
+    this.speedBonus = Math.max(0, this.speedBonus - penalty * 0.45);
+    this.state.rocketFuel = Math.max(0, this.state.rocketFuel - (kind === 'cable' ? 18 : 10 + severity * 8));
+    this.state.hurt = 0.28 + severity * 0.2;
+    this.state.invuln = 0.52 + severity * 0.22;
+    this.landingSquash = Math.max(this.landingSquash, 0.16 + severity * 0.12);
+    this.speedStretch = 0;
+
+    if (kind === 'gust') {
+      this.state.vx += 70;
+      this.state.vy -= 145;
+      this.rotation -= 0.14;
+    } else {
+      this.state.vy = Math.min(this.state.vy, -80 - severity * 60);
+      this.rotation += 0.12;
+    }
+
+    this.play('hurt', true);
+    this.syncSprite();
+    return true;
   }
 
   placeOnPlatform(
@@ -346,7 +400,8 @@ export class TitanController {
   private syncSprite(): void {
     this.sprite.setPosition(this.state.x, this.state.y + this.state.h + TITAN_BOTTOM_PAD);
     this.sprite.setFlipX(this.facing < 0);
-    this.sprite.setRotation(this.rotation);
+    const wobble = this.launchWobble > 0 ? Math.sin(this.scene.time.now * 0.018) * 0.08 * this.launchWobble : 0;
+    this.sprite.setRotation(this.rotation + wobble);
     this.sprite.setAlpha(this.state.invuln > 0 && Math.floor(this.scene.time.now / 80) % 2 === 0 ? 0.55 : 1);
     const baseScale = getTitanFrameScale(this.scene, this.sprite);
     const speedRatio = clamp(

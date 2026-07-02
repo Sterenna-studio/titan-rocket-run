@@ -35,11 +35,13 @@ Le workflow OVH installe les dépendances avec `npm ci`, lance `npm run build`, 
 
 - Titan avance automatiquement : la run commence directement.
 - `A` / `D` ou flèches gauche/droite : correction légère de trajectoire.
-- `Espace` : saut, avec air-jump de base.
+- `Espace` : charge le depart au menu, puis saut avec air-jump pendant la run.
 - `Shift` : boost rocket court, au sol comme en l'air.
 - `R` : relancer la run avec la même seed.
+- Panneau `Touches` : remap clavier persistant pour gauche, droite, saut, rocket et retry.
+- Manette : stick gauche / d-pad pour corriger, `A` / bouton bas pour sauter, `RB` / `RT` pour la rocket.
 - En tactile : boutons `Saut`, `Rocket` et `R`.
-- Chute sous la piste : fin de run.
+- Chute sous la piste : vraie transition vers le souterrain de rattrapage, puis game over si Titan retombe.
 - Les os donnent des bonus, montent le combo et rendent un peu de rocket.
 - Les plateformes restent sur une route basse et lisible ; la difficulté vient surtout du timing des gaps.
 - Les upgrades renforcent la vitesse automatique, les sauts, le contrôle en l'air, l'amorti et la rocket.
@@ -62,11 +64,17 @@ La base actuelle est volontairement simple et propre avant de reintroduire les g
 - HUD global avec record, os, nombre de runs et signaux bretons debloques ;
 - vraie chute vers le souterrain : Titan perce la piste, tombe avec suivi camera, puis atterrit sur la piste basse de rattrapage ;
 - route aerienne espace : si Titan monte assez haut, il accroche une voie spatiale avec fond dedie, plateformes fines et os hauts ;
+- lancement charge court : maintenir `Espace`, relacher dans la zone verte pour partir avec rocket pleine et vitesse bonus ;
+- UI de resultat progressive : distance, vitesse, combo, signaux et recompense comptent avant l'inscription du score ;
+- premier biome Saint-Malo lisible : palette pierre/mer, remparts en fond, mouettes, rafales et cables comme obstacles signatures ;
+- obstacles non letaux : ils cassent la combo, secouent Titan et donnent un court etat d'invulnerabilite ;
+- controles clavier remappables et persistants dans le panneau `Touches` ;
+- support manette basique via Gamepad API : stick/d-pad, bouton bas pour sauter, `RB`/`RT` pour rocket ;
 - progression par lieux bretons : Garage de Sniky, Remparts de Saint-Malo, Brume de Broceliande, Alignements de Carnac, Port de Brest, Signal des Monts d'Arree ;
 - chaque signal donne os, rocket et relance de vitesse pour rendre la progression plus lisible ;
 - stretch leger de Titan, squash d'atterrissage et lignes de vent rendent les pics de vitesse plus visibles ;
 - Titan ne perd plus automatiquement ses bonus de vitesse en courant ; seule une correction volontaire vers la gauche le ralentit ;
-- le lancement charge court, les obstacles vivants et les controles remappables restent dans la guideline V1, pas encore dans la boucle jouable.
+- l'equilibrage fin des obstacles, du mobile et des routes bonus reste a poursuivre.
 
 ## Debug
 

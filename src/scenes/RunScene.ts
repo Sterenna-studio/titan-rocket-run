@@ -17,6 +17,7 @@ import {
 } from '../game/constants';
 import { TitanController } from '../player/TitanController';
 import { CollectibleSystem } from '../systems/CollectibleSystem';
+import { controlSettings, type ControlAction } from '../systems/ControlSettings';
 import { RUN_MILESTONES, getNextMilestone } from '../systems/RunMilestones';
 import { saveSystem } from '../systems/SaveSystem';
 import { soundSystem } from '../systems/SoundSystem';
@@ -24,6 +25,8 @@ import { upgradeSystem } from '../systems/UpgradeSystem';
 import type {
   HudState,
   InputState,
+  ObstacleEntity,
+  ObstacleEntityKind,
   PlatformData,
   PlayerSnapshot,
   RunMilestone,
@@ -58,7 +61,6 @@ interface ImpactMark {
   seed: number;
 }
 
-type KeyMap = Record<'a' | 'q' | 'd' | 'left' | 'right' | 'space' | 'shift', Phaser.Input.Keyboard.Key>;
 type RunPhase = 'surface' | 'aerial' | 'falling' | 'underground' | 'recovering' | 'gameOver';
 
 const SCRIPTED_ID_START = 100000;
@@ -70,6 +72,8 @@ const AERIAL_COOLDOWN = 2.4;
 
 export class RunScene extends Phaser.Scene {
   private seed = '';
+  private launchPower = 0.42;
+  private launchUnstable = false;
   private chunk!: ChunkManager;
   private titan!: TitanController;
   private collect = new CollectibleSystem();
@@ -85,7 +89,7 @@ export class RunScene extends Phaser.Scene {
   private entitySprites = new Map<number, Phaser.GameObjects.Image>();
   private particles: Particle[] = [];
   private impactMarks: ImpactMark[] = [];
-  private keys!: KeyMap;
+  private pressedKeyCodes = new Set<string>();
   private virtualDown = new Set<VirtualInput['key']>();
   private stats!: RunStats;
   private reachedMilestones = new Set<string>();
@@ -96,6 +100,8 @@ export class RunScene extends Phaser.Scene {
   private speedWindCooldown = 0;
   private nextOverdriveCombo = 6;
   private lastCrashMessageAt = 0;
+  private lastObstacleMessageAt = 0;
+  private lastJumpHeld = false;
   private debugVisible = false;
   private hitboxesVisible = false;
   private ended = false;
@@ -113,8 +119,10 @@ export class RunScene extends Phaser.Scene {
     super('RunScene');
   }
 
-  init(data: { seed?: string }): void {
+  init(data: { seed?: string; launchPower?: number; launchUnstable?: boolean }): void {
     this.seed = data.seed || this.makeSeed();
+    this.launchPower = clamp(data.launchPower ?? 0.42, 0, 1);
+    this.launchUnstable = data.launchUnstable === true;
   }
 
   create(): void {
@@ -122,9 +130,11 @@ export class RunScene extends Phaser.Scene {
     this.stats = this.createStats();
     this.reachedMilestones.clear();
     this.lastCrashMessageAt = 0;
+    this.lastObstacleMessageAt = 0;
     this.rocketVisualCooldown = 0;
     this.speedWindCooldown = 0;
     this.nextOverdriveCombo = 6;
+    this.lastJumpHeld = false;
     this.ended = false;
     this.phase = 'surface';
     this.recoveryTimer = 0;
@@ -138,6 +148,7 @@ export class RunScene extends Phaser.Scene {
     this.particles = [];
     this.impactMarks = [];
     this.entitySprites.clear();
+    this.pressedKeyCodes.clear();
     this.virtualDown.clear();
     this.chunk = new ChunkManager(this.seed);
 
@@ -188,6 +199,8 @@ export class RunScene extends Phaser.Scene {
     this.flash = this.add.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0xff503c, 0).setOrigin(0).setScrollFactor(0).setDepth(90);
 
     this.titan = new TitanController(this, this.playerStats);
+    this.titan.applyChargedLaunch(this.launchPower, this.launchUnstable);
+    soundSystem.launch(this.launchPower);
     this.cameras.main.setBounds(0, 0, Number.MAX_SAFE_INTEGER, WORLD_HEIGHT);
     this.bindInput();
     this.syncEntitySprites(0);
@@ -195,8 +208,12 @@ export class RunScene extends Phaser.Scene {
     this.emitHud();
     this.game.events.emit(GameEvents.RunStarted);
     this.game.events.emit(GameEvents.Message, {
-      title: 'Course lancee',
-      body: 'Titan avance tout seul : saute les trous, garde un peu de rocket pour sauver les longues distances et vise les balises.',
+      title: this.launchPower >= 0.95 ? 'Depart parfait !' : this.launchUnstable ? 'Depart puissant instable' : 'Course lancee',
+      body: this.launchPower >= 0.95
+        ? 'Rocket pleine, vitesse bonus et ligne propre. Saute les trous et garde le rythme.'
+        : this.launchUnstable
+          ? 'Titan part tres fort avec un wobble court : stabilise les premiers sauts.'
+          : 'Titan avance tout seul : saute les trous, garde un peu de rocket pour sauver les longues distances et vise les balises.',
     });
   }
 
@@ -222,6 +239,7 @@ export class RunScene extends Phaser.Scene {
     this.chunk.ensure(this.cameras.main.scrollX, GAME_WIDTH);
 
     const input = this.getInputState();
+    this.updateJumpInputEdges(input.jumpHeld);
     const beforeJump = this.titan.getSnapshot();
     if (this.jumpBuffer > 0 && this.titan.tryJump()) {
       this.jumpBuffer = 0;
@@ -284,44 +302,57 @@ export class RunScene extends Phaser.Scene {
       Phaser.Input.Keyboard.KeyCodes.H,
     ]);
 
-    this.keys = {
-      a: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A),
-      q: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Q),
-      d: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D),
-      left: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.LEFT),
-      right: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.RIGHT),
-      space: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE),
-      shift: keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT),
-    };
-
-    keyboard.on('keydown-SPACE', (event: KeyboardEvent) => {
-      event.preventDefault();
-      this.jumpBuffer = 0.13;
-    });
-    keyboard.on('keyup-SPACE', (event: KeyboardEvent) => {
-      event.preventDefault();
-      this.titan.releaseJump();
-    });
-    keyboard.on('keydown-R', () => this.restartRun(this.seed));
-    keyboard.on('keydown-F3', (event: KeyboardEvent) => {
-      event.preventDefault();
-      this.debugVisible = !this.debugVisible;
-      this.debugText.setVisible(this.debugVisible);
-    });
-    keyboard.on('keydown-F5', (event: KeyboardEvent) => {
-      event.preventDefault();
-      this.restartRun(this.makeSeed());
-    });
-    keyboard.on('keydown-H', (event: KeyboardEvent) => {
-      event.preventDefault();
-      this.hitboxesVisible = !this.hitboxesVisible;
-      this.hitboxGraphics.setVisible(this.hitboxesVisible);
-    });
+    keyboard.on('keydown', this.handleKeyDown, this);
+    keyboard.on('keyup', this.handleKeyUp, this);
 
     this.game.events.on(GameEvents.VirtualInput, this.handleVirtualInput, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      keyboard.off('keydown', this.handleKeyDown, this);
+      keyboard.off('keyup', this.handleKeyUp, this);
       this.game.events.off(GameEvents.VirtualInput, this.handleVirtualInput, this);
     });
+  }
+
+  private handleKeyDown(event: KeyboardEvent): void {
+    const wasDown = this.pressedKeyCodes.has(event.code);
+    this.pressedKeyCodes.add(event.code);
+
+    if (controlSettings.matches('jump', event.code)) {
+      event.preventDefault();
+      if (!wasDown) {
+        this.jumpBuffer = 0.13;
+      }
+      return;
+    }
+
+    if (controlSettings.matches('restart', event.code)) {
+      event.preventDefault();
+      if (!wasDown) {
+        this.restartRun(this.seed);
+      }
+      return;
+    }
+
+    if (event.code === 'F3') {
+      event.preventDefault();
+      this.debugVisible = !this.debugVisible;
+      this.debugText.setVisible(this.debugVisible);
+    } else if (event.code === 'F5') {
+      event.preventDefault();
+      this.restartRun(this.makeSeed());
+    } else if (event.code === 'KeyH') {
+      event.preventDefault();
+      this.hitboxesVisible = !this.hitboxesVisible;
+      this.hitboxGraphics.setVisible(this.hitboxesVisible);
+    }
+  }
+
+  private handleKeyUp(event: KeyboardEvent): void {
+    this.pressedKeyCodes.delete(event.code);
+    if (controlSettings.matches('jump', event.code)) {
+      event.preventDefault();
+      this.titan.releaseJump();
+    }
   }
 
   private handleVirtualInput(input: VirtualInput): void {
@@ -342,12 +373,49 @@ export class RunScene extends Phaser.Scene {
   }
 
   private getInputState(): InputState {
+    const gamepad = this.getGamepadInput();
     return {
-      left: this.keys.a.isDown || this.keys.q.isDown || this.keys.left.isDown || this.virtualDown.has('a'),
-      right: this.keys.d.isDown || this.keys.right.isDown || this.virtualDown.has('d'),
-      rocket: this.keys.shift.isDown || this.virtualDown.has('shift'),
-      jumpHeld: this.keys.space.isDown || this.virtualDown.has('space'),
+      left: this.isActionDown('left') || this.virtualDown.has('a') || gamepad.left,
+      right: this.isActionDown('right') || this.virtualDown.has('d') || gamepad.right,
+      rocket: this.isActionDown('rocket') || this.virtualDown.has('shift') || gamepad.rocket,
+      jumpHeld: this.isActionDown('jump') || this.virtualDown.has('space') || gamepad.jumpHeld,
     };
+  }
+
+  private isActionDown(action: ControlAction): boolean {
+    for (const code of this.pressedKeyCodes) {
+      if (controlSettings.matches(action, code)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private getGamepadInput(): InputState {
+    const pads = navigator.getGamepads?.() || [];
+    const pad = Array.from(pads).find((candidate): candidate is Gamepad => Boolean(candidate));
+    if (!pad) {
+      return { left: false, right: false, rocket: false, jumpHeld: false };
+    }
+
+    const axisX = pad.axes[0] ?? 0;
+    return {
+      left: axisX < -0.34 || Boolean(pad.buttons[14]?.pressed),
+      right: axisX > 0.34 || Boolean(pad.buttons[15]?.pressed),
+      rocket: Boolean(pad.buttons[5]?.pressed || pad.buttons[7]?.pressed),
+      jumpHeld: Boolean(pad.buttons[0]?.pressed || pad.buttons[1]?.pressed),
+    };
+  }
+
+  private updateJumpInputEdges(jumpHeld: boolean): void {
+    if (jumpHeld && !this.lastJumpHeld) {
+      this.jumpBuffer = 0.13;
+    } else if (!jumpHeld && this.lastJumpHeld) {
+      this.titan.releaseJump();
+    }
+
+    this.lastJumpHeld = jumpHeld;
   }
 
   private getActivePlatforms(): PlatformData[] {
@@ -386,6 +454,63 @@ export class RunScene extends Phaser.Scene {
       }
     }
 
+    for (const entity of this.collect.findObstacleHits(player, this.getActiveEntities(), time)) {
+      entity.hit = true;
+      if (!this.titan.hitObstacle(entity.type)) {
+        continue;
+      }
+
+      this.stats.combo = 0;
+      soundSystem.hit();
+      const feedback = this.getObstacleFeedback(entity.type);
+      this.spawnObstacleImpact(entity, feedback.color);
+      this.cameras.main.shake(95, entity.type === 'menhir' ? 0.004 : 0.0025);
+
+      if (this.time.now - this.lastObstacleMessageAt > 1550) {
+        this.lastObstacleMessageAt = this.time.now;
+        this.game.events.emit(GameEvents.Message, {
+          title: feedback.title,
+          body: feedback.body,
+        });
+      }
+    }
+
+  }
+
+  private getObstacleFeedback(type: ObstacleEntityKind): { title: string; body: string; color: number } {
+    switch (type) {
+      case 'seagull':
+        return {
+          title: 'Mouette !',
+          body: 'Obstacle haut : saute plus bas ou booste apres le passage pour garder la ligne.',
+          color: 0xf0fff4,
+        };
+      case 'cable':
+        return {
+          title: 'Cable au sol',
+          body: 'Le cable casse la combo et grignote la rocket. Repere les silhouettes sombres sur la piste.',
+          color: 0xffd36a,
+        };
+      case 'granny':
+        return {
+          title: 'Mamie calin',
+          body: 'Titan est ralenti par une tentative de caresse. Reste haut sur les prochaines plateformes.',
+          color: 0xd6a0ff,
+        };
+      case 'menhir':
+        return {
+          title: 'Menhir frontal',
+          body: 'Gros choc : la prochaine fois, saute tard ou passe au-dessus de la pierre.',
+          color: 0xbec8c4,
+        };
+      case 'gust':
+      default:
+        return {
+          title: 'Rafale de mer',
+          body: 'La rafale pousse Titan et casse la combo. Corrige avec une petite rocket.',
+          color: 0x8cfffb,
+        };
+    }
   }
 
   private updateRecoveryTimer(dt: number): void {
@@ -844,6 +969,49 @@ export class RunScene extends Phaser.Scene {
       this.zoneBackdrop.fillStyle(0x02040b, 0.34);
       this.zoneBackdrop.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
     }
+
+    if (this.phase === 'surface' || this.phase === 'recovering') {
+      this.drawSurfaceBiomeBackdrop(time);
+    }
+  }
+
+  private drawSurfaceBiomeBackdrop(time: number): void {
+    const biome = this.getBiomeIndex(this.cameras.main.scrollX + GAME_WIDTH * 0.5);
+
+    if (biome === 0) {
+      this.zoneBackdrop.fillStyle(0x36515d, 0.18);
+      this.zoneBackdrop.fillRect(0, SKY_Y + 34, GAME_WIDTH, CRASH_GROUND_Y - SKY_Y - 34);
+      this.zoneBackdrop.lineStyle(3, 0x65d9ff, 0.16);
+      for (let y = GROUND_Y - 405; y < GROUND_Y - 245; y += 42) {
+        this.zoneBackdrop.lineBetween(0, y + Math.sin(time + y * 0.02) * 5, GAME_WIDTH, y + Math.cos(time * 0.8 + y * 0.02) * 5);
+      }
+      this.zoneBackdrop.fillStyle(0x5d6662, 0.44);
+      for (let x = -80; x < GAME_WIDTH + 160; x += 156) {
+        const top = GROUND_Y - 318 + Math.sin(time * 0.4 + x * 0.01) * 4;
+        this.zoneBackdrop.fillRect(x, top, 112, 132);
+        this.zoneBackdrop.fillRect(x + 18, top - 42, 26, 42);
+        this.zoneBackdrop.fillRect(x + 68, top - 34, 26, 34);
+      }
+      this.zoneBackdrop.lineStyle(3, 0xf0fff4, 0.38);
+      for (let i = 0; i < 5; i += 1) {
+        const x = (i * 240 + time * 38) % (GAME_WIDTH + 180) - 90;
+        const y = SKY_Y + 108 + i * 29;
+        this.zoneBackdrop.lineBetween(x, y, x + 16, y - 16);
+        this.zoneBackdrop.lineBetween(x + 16, y - 16, x + 32, y);
+        this.zoneBackdrop.lineBetween(x + 32, y, x + 50, y - 16);
+        this.zoneBackdrop.lineBetween(x + 50, y - 16, x + 70, y);
+      }
+      return;
+    }
+
+    if (biome === 1) {
+      this.zoneBackdrop.fillStyle(0x173421, 0.18);
+      this.zoneBackdrop.fillRect(0, SKY_Y + 80, GAME_WIDTH, CRASH_GROUND_Y - SKY_Y - 80);
+      this.zoneBackdrop.fillStyle(0xd6a0ff, 0.055);
+      for (let x = -60; x < GAME_WIDTH + 120; x += 180) {
+        this.zoneBackdrop.fillEllipse(x, GROUND_Y - 300 + Math.sin(time + x) * 14, 240, 42);
+      }
+    }
   }
 
   private createBackgroundTextures(): void {
@@ -1146,11 +1314,11 @@ export class RunScene extends Phaser.Scene {
   }
 
   private getBiomePlatformColor(x: number): number {
-    return [COLORS.platform, 0x172638, 0x2a2440, 0x302514][this.getBiomeIndex(x)];
+    return [0x2f3a3b, 0x17362d, 0x2a2440, 0x302514][this.getBiomeIndex(x)];
   }
 
   private getBiomeAccentColor(x: number): number {
-    return [COLORS.green, 0x65d9ff, 0xd6a0ff, 0xffd36a][this.getBiomeIndex(x)];
+    return [0x65d9ff, 0x62ff52, 0xd6a0ff, 0xffd36a][this.getBiomeIndex(x)];
   }
 
   private getBiomeIndex(x: number): number {
@@ -1170,9 +1338,25 @@ export class RunScene extends Phaser.Scene {
         sprite = this.collect.createBone(this, entity);
         this.entitySprites.set(entity.id, sprite);
       }
-      sprite.setPosition(entity.x, entity.y + Math.sin(time * 3 + entity.bob) * 6);
-      sprite.setAlpha(entity.type === 'undergroundBoost' ? 0.92 + Math.sin(time * 7) * 0.08 : 1);
-      sprite.setRotation(entity.type === 'undergroundBoost' ? Math.sin(time * 2.5) * 0.08 : 0);
+      const airborne = entity.type === 'bone' || entity.type === 'undergroundBoost' || entity.type === 'seagull' || entity.type === 'gust';
+      const bob = airborne ? Math.sin(time * (entity.type === 'gust' ? 4.2 : 3) + entity.bob) * (entity.type === 'gust' ? 10 : 6) : 0;
+      sprite.setPosition(entity.x, entity.y + bob);
+      sprite.setAlpha(
+        entity.type === 'undergroundBoost'
+          ? 0.92 + Math.sin(time * 7) * 0.08
+          : entity.type === 'gust'
+            ? 0.68 + Math.sin(time * 6 + entity.bob) * 0.18
+            : 1,
+      );
+      sprite.setRotation(
+        entity.type === 'undergroundBoost'
+          ? Math.sin(time * 2.5) * 0.08
+          : entity.type === 'seagull'
+            ? Math.sin(time * 4 + entity.bob) * 0.1
+            : entity.type === 'gust'
+              ? Math.sin(time * 5 + entity.bob) * 0.14
+              : 0,
+      );
       sprite.clearTint();
     }
 
@@ -1355,6 +1539,21 @@ export class RunScene extends Phaser.Scene {
       duration: 260,
       onComplete: () => ring.destroy(),
     });
+  }
+
+  private spawnObstacleImpact(entity: ObstacleEntity, color: number): void {
+    const ring = this.add.circle(entity.x, entity.y, entity.r * 1.42, color, 0).setDepth(24);
+    ring.setStrokeStyle(5, color, 0.8);
+    this.tweens.add({
+      targets: ring,
+      alpha: 0,
+      scale: 1.7,
+      duration: 260,
+      onComplete: () => ring.destroy(),
+    });
+
+    const count = entity.type === 'menhir' ? 22 : entity.type === 'cable' ? 16 : 12;
+    this.spawnBurst(entity.x, entity.y, count, color);
   }
 
   private spawnAerialEntry(x: number, y: number): void {

@@ -27,16 +27,28 @@
         <h2>Guidage Titan</h2>
         <div class="controls">
           <div class="controlRow"><span class="controlKeys"><kbd>A</kbd><kbd>D</kbd></span><span>corriger legerement la trajectoire</span></div>
-          <div class="controlRow"><span class="controlKeys"><kbd>Espace</kbd></span><span>sauter / air-jump</span></div>
+          <div class="controlRow"><span class="controlKeys"><kbd>Espace</kbd></span><span>charger le depart, puis sauter / air-jump</span></div>
           <div class="controlRow"><span class="controlKeys"><kbd>Shift</kbd></span><span>boost rocket court</span></div>
           <div class="controlRow"><span class="controlKeys"><kbd>R</kbd></span><span>relancer</span></div>
+          <div class="controlRow"><span class="controlKeys"><kbd>Pad A</kbd><kbd>RB</kbd></span><span>sauter / rocket avec manette</span></div>
+        </div>
+
+        <h2>Touches</h2>
+        <div id="controlConfig" class="controlConfig">
+          <button class="bindBtn" type="button" data-action="left"><span>Gauche</span><b data-bind-label="left">A / Q / ←</b></button>
+          <button class="bindBtn" type="button" data-action="right"><span>Droite</span><b data-bind-label="right">D / →</b></button>
+          <button class="bindBtn" type="button" data-action="jump"><span>Saut</span><b data-bind-label="jump">Espace</b></button>
+          <button class="bindBtn" type="button" data-action="rocket"><span>Rocket</span><b data-bind-label="rocket">Shift</b></button>
+          <button class="bindBtn" type="button" data-action="restart"><span>Retry</span><b data-bind-label="restart">R</b></button>
+          <button id="controlReset" class="ghostBtn compact" type="button">Reset touches</button>
         </div>
 
         <h2>Tuto de Sniky</h2>
         <div class="tutorial">
           <b>Sniky, maitre de Titan, aka le bg beau gosse de la street</b>
           <p>Nouvelle save V1 : Sniky offre 130 os pour choisir un premier upgrade avant la route.</p>
-          <p>Titan court tout seul. Ton job : sauter au bon moment et garder un peu de rocket pour sauver les sauts trop courts.</p>
+          <p>Maintiens Espace au depart pour charger un boost court, puis saute au bon moment et garde un peu de rocket pour sauver les sauts trop courts.</p>
+          <p>Saint-Malo introduit les mouettes, rafales et cables : gros silhouettes, impact non fatal, combo cassee.</p>
           <p>Les signaux bretons marquent la progression : garage, Saint-Malo, Broceliande, Carnac, Brest, Monts d'Arree.</p>
           <p>Les gros combos declenchent un overdrive : rocket rechargee, vitesse bonus et os bonus.</p>
         </div>
@@ -83,9 +95,9 @@
               <p class="lead">Un runner direct : Titan avance, tu sautes les trous, tu boostes court et tu ramasses les os.</p>
               <div class="ctrlGrid">
                 <span><kbd>A</kbd><kbd>D</kbd> corriger la trajectoire</span>
-                <span><kbd>Espace</kbd> sauter / air-jump</span>
+                <span><kbd>Espace</kbd> charger au depart, puis sauter</span>
                 <span><kbd>Shift</kbd> boost rocket</span>
-                <span><kbd>R</kbd> relancer</span>
+                <span><kbd>Pad A/RB</kbd> manette</span>
               </div>
               <button id="playBtn" class="cta" type="button">Jouer</button>
             </div>

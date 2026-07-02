@@ -2,7 +2,9 @@ export type UpgradeId = 'shoes' | 'ramp' | 'bounce' | 'rocket' | 'missile' | 'ca
 
 export type PlatformKind = 'start' | 'normal' | 'boost' | 'ramp' | 'path' | 'underground' | 'recovery' | 'aerial';
 
-export type EntityKind = 'bone' | 'undergroundBoost';
+export type CollectibleEntityKind = 'bone' | 'undergroundBoost';
+export type ObstacleEntityKind = 'seagull' | 'cable' | 'granny' | 'menhir' | 'gust';
+export type EntityKind = CollectibleEntityKind | ObstacleEntityKind;
 
 export interface UpgradeDefinition {
   name: string;
@@ -106,6 +108,8 @@ export interface PlayerSnapshot {
   hurt: number;
   invuln: number;
 }
+
+export type ObstacleEntity = WorldEntity & { type: ObstacleEntityKind };
 
 export interface RunStats {
   distance: number;

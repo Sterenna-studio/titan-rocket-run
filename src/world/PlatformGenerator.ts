@@ -1,7 +1,7 @@
 import alea from 'alea';
 import { createNoise2D } from 'simplex-noise';
 import { GROUND_Y, clamp } from '../game/constants';
-import type { EntityDraft, PlatformData, PlatformKind } from '../types/game';
+import type { EntityDraft, ObstacleEntityKind, PlatformData, PlatformKind } from '../types/game';
 import { DifficultyCurve } from './DifficultyCurve';
 
 export class PlatformGenerator {
@@ -59,6 +59,11 @@ export class PlatformGenerator {
       });
     }
 
+    const obstacle = this.createObstacle(platform, difficulty.value);
+    if (obstacle) {
+      entities.push(obstacle);
+    }
+
     return entities;
   }
 
@@ -109,5 +114,81 @@ export class PlatformGenerator {
     }
 
     return rawY;
+  }
+
+  private createObstacle(platform: PlatformData, difficulty: number): EntityDraft | undefined {
+    if (platform.id < 4 || platform.w < 270 || platform.kind === 'boost' || platform.kind === 'ramp') {
+      return undefined;
+    }
+
+    const chance = (platform.kind === 'path' ? 0.34 : 0.24) + difficulty * 0.14;
+    if (this.random() > chance) {
+      return undefined;
+    }
+
+    const type = this.pickObstacleType(platform.x);
+    const x = platform.x + clamp(platform.w * (0.34 + this.random() * 0.36), 96, platform.w - 88);
+    const bob = this.random() * Math.PI * 2;
+
+    switch (type) {
+      case 'seagull':
+        return {
+          type,
+          x,
+          y: platform.y - 126 - this.random() * 54,
+          r: 28,
+          value: 0,
+          bob,
+        };
+      case 'cable':
+        return {
+          type,
+          x,
+          y: platform.y - 18,
+          r: 26,
+          value: 0,
+          bob,
+        };
+      case 'granny':
+        return {
+          type,
+          x,
+          y: platform.y - 47,
+          r: 30,
+          value: 0,
+          bob,
+        };
+      case 'menhir':
+        return {
+          type,
+          x,
+          y: platform.y - 62,
+          r: 34,
+          value: 0,
+          bob,
+        };
+      case 'gust':
+      default:
+        return {
+          type: 'gust',
+          x,
+          y: platform.y - 108 - this.random() * 36,
+          r: 34,
+          value: 0,
+          bob,
+        };
+    }
+  }
+
+  private pickObstacleType(worldX: number): ObstacleEntityKind {
+    const biome = Math.floor(Math.max(0, worldX) / 2200) % 4;
+    const pools: ObstacleEntityKind[][] = [
+      ['seagull', 'gust', 'cable'],
+      ['gust', 'menhir', 'seagull'],
+      ['menhir', 'gust', 'cable'],
+      ['cable', 'granny', 'seagull'],
+    ];
+    const pool = pools[biome];
+    return pool[Math.floor(this.random() * pool.length)];
   }
 }
