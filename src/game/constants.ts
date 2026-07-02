@@ -3,6 +3,7 @@ import { withAssetCacheBust } from './cacheBust';
 
 export const GAME_WIDTH = 2560;
 export const GAME_HEIGHT = 1440;
+export const WORLD_HEIGHT = 2460;
 export const MANIFEST_URL = withAssetCacheBust('assets/titan_manifest.json');
 export const SAVE_VERSION = 1;
 export const STARTER_BONES = 130;
@@ -11,14 +12,15 @@ export const SAVE_KEY = `titanRocketRunSaveV${SAVE_VERSION}`;
 export const START_X = 145;
 export const GROUND_Y = 1220;
 export const CRASH_GROUND_Y = GAME_HEIGHT - 84;
-export const UNDERGROUND_Y = GAME_HEIGHT - 116;
+export const UNDERGROUND_Y = GAME_HEIGHT + 640;
 export const WORLD_SCALE = 0.09;
-export const DEATH_Y = 1580;
+export const DEATH_Y = UNDERGROUND_Y + 290;
 export const GRAVITY = 1900;
 export const WORLD_AHEAD = 2200;
 export const WORLD_BEHIND = 650;
 export const SKY_Y = 590;
 export const SPACE_Y = 170;
+export const AERIAL_Y = SPACE_Y + 170;
 
 export const PLAYER_WIDTH = 62;
 export const PLAYER_HEIGHT = 126;

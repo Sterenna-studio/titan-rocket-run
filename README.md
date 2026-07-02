@@ -60,10 +60,12 @@ La base actuelle est volontairement simple et propre avant de reintroduire les g
 - nouveau leaderboard local `titanRocketRunArcadeLeaderboardV1` ;
 - accueil Sniky pour les nouveaux joueurs, avec 130 os offerts pour acheter un premier upgrade ;
 - HUD global avec record, os, nombre de runs et signaux bretons debloques ;
-- seconde chance souterraine : une chute de surface envoie Titan sur une piste basse de rattrapage, avec boost cyan pour remonter ;
+- vraie chute vers le souterrain : Titan perce la piste, tombe avec suivi camera, puis atterrit sur la piste basse de rattrapage ;
+- route aerienne espace : si Titan monte assez haut, il accroche une voie spatiale avec fond dedie, plateformes fines et os hauts ;
 - progression par lieux bretons : Garage de Sniky, Remparts de Saint-Malo, Brume de Broceliande, Alignements de Carnac, Port de Brest, Signal des Monts d'Arree ;
 - chaque signal donne os, rocket et relance de vitesse pour rendre la progression plus lisible ;
 - stretch leger de Titan, squash d'atterrissage et lignes de vent rendent les pics de vitesse plus visibles ;
+- Titan ne perd plus automatiquement ses bonus de vitesse en courant ; seule une correction volontaire vers la gauche le ralentit ;
 - le lancement charge court, les obstacles vivants et les controles remappables restent dans la guideline V1, pas encore dans la boucle jouable.
 
 ## Debug

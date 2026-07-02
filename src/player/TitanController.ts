@@ -87,9 +87,8 @@ export class TitanController {
     this.state.vx = clamp(
       this.state.vx,
       this.stats.startVelocity * 0.62,
-      this.stats.topSpeed + (rocketUsed ? 260 : 120) + this.speedBonus,
+      this.stats.topSpeed + 420 + this.speedBonus,
     );
-    this.speedBonus = Math.max(0, this.speedBonus - 260 * dt);
 
     const prevY = this.state.y;
     this.state.vy += GRAVITY * this.stats.gravityScale * dt;
@@ -296,7 +295,9 @@ export class TitanController {
 
     if (this.state.grounded) {
       const blend = Math.min(1, dt * 3.8);
-      this.state.vx += (target - this.state.vx) * blend;
+      if (target > this.state.vx || input.left) {
+        this.state.vx += (target - this.state.vx) * blend;
+      }
       return;
     }
 

@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import {
+  AERIAL_Y,
   COLORS,
   CRASH_GROUND_Y,
   GAME_HEIGHT,
@@ -10,6 +11,7 @@ import {
   SPACE_Y,
   START_X,
   UNDERGROUND_Y,
+  WORLD_HEIGHT,
   WORLD_SCALE,
   clamp,
 } from '../game/constants';
@@ -57,11 +59,14 @@ interface ImpactMark {
 }
 
 type KeyMap = Record<'a' | 'q' | 'd' | 'left' | 'right' | 'space' | 'shift', Phaser.Input.Keyboard.Key>;
-type RunPhase = 'surface' | 'underground' | 'recovering' | 'gameOver';
+type RunPhase = 'surface' | 'aerial' | 'falling' | 'underground' | 'recovering' | 'gameOver';
 
 const SCRIPTED_ID_START = 100000;
-const SURFACE_FALL_BOTTOM_Y = CRASH_GROUND_Y + 24;
+const SURFACE_FALL_BOTTOM_Y = CRASH_GROUND_Y - 24;
 const RECOVERY_DURATION = 1.15;
+const AERIAL_ENTER_Y = SKY_Y + 150;
+const AERIAL_EXIT_BOTTOM_Y = SKY_Y + 300;
+const AERIAL_COOLDOWN = 2.4;
 
 export class RunScene extends Phaser.Scene {
   private seed = '';
@@ -75,6 +80,7 @@ export class RunScene extends Phaser.Scene {
   private hudText!: Phaser.GameObjects.Text;
   private milestoneBanner!: Phaser.GameObjects.Text;
   private flash!: Phaser.GameObjects.Rectangle;
+  private zoneBackdrop!: Phaser.GameObjects.Graphics;
   private backgroundLayers: ParallaxLayer[] = [];
   private entitySprites = new Map<number, Phaser.GameObjects.Image>();
   private particles: Particle[] = [];
@@ -95,7 +101,10 @@ export class RunScene extends Phaser.Scene {
   private ended = false;
   private phase: RunPhase = 'surface';
   private recoveryTimer = 0;
+  private aerialCooldown = 0;
   private nextScriptedId = SCRIPTED_ID_START;
+  private aerialPlatforms: PlatformData[] = [];
+  private aerialEntities: WorldEntity[] = [];
   private undergroundPlatforms: PlatformData[] = [];
   private recoveryPlatforms: PlatformData[] = [];
   private undergroundEntities: WorldEntity[] = [];
@@ -119,7 +128,10 @@ export class RunScene extends Phaser.Scene {
     this.ended = false;
     this.phase = 'surface';
     this.recoveryTimer = 0;
+    this.aerialCooldown = 0;
     this.nextScriptedId = SCRIPTED_ID_START;
+    this.aerialPlatforms = [];
+    this.aerialEntities = [];
     this.undergroundPlatforms = [];
     this.recoveryPlatforms = [];
     this.undergroundEntities = [];
@@ -176,7 +188,7 @@ export class RunScene extends Phaser.Scene {
     this.flash = this.add.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0xff503c, 0).setOrigin(0).setScrollFactor(0).setDepth(90);
 
     this.titan = new TitanController(this, this.playerStats);
-    this.cameras.main.setBounds(0, 0, Number.MAX_SAFE_INTEGER, GAME_HEIGHT);
+    this.cameras.main.setBounds(0, 0, Number.MAX_SAFE_INTEGER, WORLD_HEIGHT);
     this.bindInput();
     this.syncEntitySprites(0);
     this.drawPlatforms();
@@ -205,6 +217,7 @@ export class RunScene extends Phaser.Scene {
     this.boostSoundCooldown = Math.max(0, this.boostSoundCooldown - dt);
     this.rocketVisualCooldown = Math.max(0, this.rocketVisualCooldown - dt);
     this.speedWindCooldown = Math.max(0, this.speedWindCooldown - dt);
+    this.aerialCooldown = Math.max(0, this.aerialCooldown - dt);
     this.updateRecoveryTimer(dt);
     this.chunk.ensure(this.cameras.main.scrollX, GAME_WIDTH);
 
@@ -338,11 +351,11 @@ export class RunScene extends Phaser.Scene {
   }
 
   private getActivePlatforms(): PlatformData[] {
-    return [...this.chunk.platforms, ...this.undergroundPlatforms, ...this.recoveryPlatforms];
+    return [...this.chunk.platforms, ...this.aerialPlatforms, ...this.undergroundPlatforms, ...this.recoveryPlatforms];
   }
 
   private getActiveEntities(): WorldEntity[] {
-    return [...this.chunk.entities, ...this.undergroundEntities];
+    return [...this.chunk.entities, ...this.aerialEntities, ...this.undergroundEntities];
   }
 
   private handleEntities(): void {
@@ -389,8 +402,32 @@ export class RunScene extends Phaser.Scene {
   private updateRunPhase(): void {
     const snap = this.titan.getSnapshot();
 
+    if (this.phase === 'surface' && this.shouldEnterAerial(snap)) {
+      this.enterAerial(snap);
+      return;
+    }
+
+    if (this.phase === 'aerial') {
+      if (snap.y + snap.h > AERIAL_EXIT_BOTTOM_Y || this.isPastAerialRoute(snap)) {
+        this.exitAerial(snap);
+      }
+      return;
+    }
+
     if (this.phase === 'surface' && snap.y + snap.h > SURFACE_FALL_BOTTOM_Y) {
-      this.enterUnderground(snap);
+      this.startUndergroundFall(snap);
+      return;
+    }
+
+    if (this.phase === 'falling') {
+      if (snap.grounded && snap.y + snap.h > GROUND_Y + 340) {
+        this.finishUndergroundLanding(snap);
+        return;
+      }
+
+      if (this.titan.isDead()) {
+        this.finishRun();
+      }
       return;
     }
 
@@ -399,23 +436,74 @@ export class RunScene extends Phaser.Scene {
     }
   }
 
-  private enterUnderground(snap: PlayerSnapshot): void {
-    this.phase = 'underground';
+  private shouldEnterAerial(snap: PlayerSnapshot): boolean {
+    return this.aerialCooldown <= 0 && snap.y < AERIAL_ENTER_Y && snap.vy < 260 && snap.x > START_X + 520;
+  }
+
+  private enterAerial(snap: PlayerSnapshot): void {
+    this.phase = 'aerial';
+    this.aerialCooldown = AERIAL_COOLDOWN;
+    const startX = Math.max(START_X + 720, snap.x - 160);
+    this.aerialPlatforms = this.createAerialRoute(startX);
+    this.aerialEntities = this.createAerialCollectibles(this.aerialPlatforms);
+    const entry = this.aerialPlatforms[0];
+    const entryX = clamp(snap.x + 80, entry.x + 96, entry.x + entry.w - 96);
+
+    this.titan.placeOnPlatform(entryX, entry.y, Math.max(snap.vx + 180, this.playerStats.topSpeed + 80), 85, 0.85, 260);
+    const placed = this.titan.getSnapshot();
+    this.spawnAerialEntry(placed.x, placed.y + placed.h * 0.52);
+    soundSystem.milestone();
+    this.cameras.main.flash(180, 96, 180, 255, false);
+    this.game.events.emit(GameEvents.Message, {
+      title: 'Voie aerienne',
+      body: 'Titan accroche la route espace : plateformes fines, os hauts et retour surface si tu rates la ligne.',
+    });
+    this.showPhaseBanner('Voie aerienne', 'Route espace au-dessus de la piste');
+  }
+
+  private exitAerial(snap: PlayerSnapshot): void {
+    this.phase = 'surface';
+    this.aerialCooldown = AERIAL_COOLDOWN;
+    this.aerialPlatforms = [];
+    this.aerialEntities = [];
+    this.spawnBurst(snap.x, snap.y + snap.h * 0.55, 18, 0x8cfffb);
+    this.game.events.emit(GameEvents.Message, {
+      title: 'Retour surface',
+      body: 'La route aerienne se termine : reprends les sauts et garde la rocket pour la piste haute.',
+    });
+  }
+
+  private isPastAerialRoute(snap: PlayerSnapshot): boolean {
+    const last = this.aerialPlatforms[this.aerialPlatforms.length - 1];
+    return Boolean(last && snap.x > last.x + last.w - 80);
+  }
+
+  private startUndergroundFall(snap: PlayerSnapshot): void {
+    this.phase = 'falling';
     this.recoveryTimer = 0;
-    const startX = Math.max(START_X + 420, snap.x - 120);
+    this.aerialPlatforms = [];
+    this.aerialEntities = [];
+    const startX = Math.max(START_X + 420, snap.x - 460);
     this.undergroundPlatforms = this.createUndergroundRoute(startX);
     this.undergroundEntities = this.createUndergroundCollectibles(this.undergroundPlatforms);
     this.recoveryPlatforms = [];
-    const entry = this.undergroundPlatforms[0];
-    const entryX = clamp(snap.x + 120, entry.x + 96, entry.x + entry.w - 96);
-
-    this.titan.placeOnPlatform(entryX, entry.y, Math.max(snap.vx * 0.72, this.playerStats.startVelocity * 0.88), 62, 1.1);
-    const placed = this.titan.getSnapshot();
-    this.spawnBurst(placed.x, placed.y + placed.h * 0.54, 30, 0x8cfffb);
-    this.spawnUndergroundTransition(placed.x, placed.y + placed.h);
+    this.spawnFallShaft(snap.x, CRASH_GROUND_Y + 12);
+    this.spawnBurst(snap.x, snap.y + snap.h, 24, 0x8cfffb);
     soundSystem.land(0.82);
-    this.cameras.main.shake(190, 0.006);
-    this.cameras.main.flash(220, 36, 12, 54, false);
+    this.cameras.main.shake(240, 0.008);
+    this.cameras.main.flash(240, 20, 8, 36, false);
+    this.game.events.emit(GameEvents.Message, {
+      title: 'Chute vers le souterrain',
+      body: 'Titan perce la piste : garde le controle pendant la descente, le tunnel de rattrapage arrive dessous.',
+    });
+    this.showPhaseBanner('Chute souterraine', 'Atterrissage dans le tunnel');
+  }
+
+  private finishUndergroundLanding(snap: PlayerSnapshot): void {
+    this.phase = 'underground';
+    this.spawnUndergroundTransition(snap.x, snap.y + snap.h);
+    this.spawnBurst(snap.x, snap.y + snap.h * 0.54, 30, 0x8cfffb);
+    this.cameras.main.shake(150, 0.005);
     this.game.events.emit(GameEvents.Message, {
       title: 'Souterrain de rattrapage',
       body: 'Seconde chance : reste sur les tunnels et attrape le boost cyan pour remonter sur la piste haute.',
@@ -455,8 +543,52 @@ export class RunScene extends Phaser.Scene {
     this.showPhaseBanner('Remontee surface', 'Rocket pleine + vitesse bonus');
   }
 
+  private createAerialRoute(startX: number): PlatformData[] {
+    const widths = [560, 430, 470, 360, 520, 640];
+    const gaps = [150, 172, 145, 166, 150];
+    const platforms: PlatformData[] = [];
+    let x = startX;
+
+    for (let i = 0; i < widths.length; i += 1) {
+      const y = clamp(AERIAL_Y + Math.sin((startX + i * 113) * 0.012) * 34 + (i % 2) * 38, SPACE_Y + 96, SKY_Y - 88);
+      platforms.push({
+        id: this.nextScriptedId,
+        x,
+        y,
+        w: widths[i],
+        h: i === widths.length - 1 ? 28 : 24,
+        kind: 'aerial',
+      });
+      this.nextScriptedId += 1;
+      x += widths[i] + (gaps[i] ?? 0);
+    }
+
+    return platforms;
+  }
+
+  private createAerialCollectibles(platforms: PlatformData[]): WorldEntity[] {
+    const entities: WorldEntity[] = [];
+    for (let i = 0; i < platforms.length; i += 1) {
+      const platform = platforms[i];
+      entities.push({
+        id: this.nextScriptedId,
+        type: 'bone',
+        x: platform.x + platform.w * (i % 2 === 0 ? 0.42 : 0.62),
+        y: platform.y - 76 - (i % 3) * 18,
+        r: 18,
+        value: 6,
+        hit: false,
+        grazed: false,
+        bob: i * 0.72,
+      });
+      this.nextScriptedId += 1;
+    }
+
+    return entities;
+  }
+
   private createUndergroundRoute(startX: number): PlatformData[] {
-    const widths = [760, 420, 360, 455, 390, 520];
+    const widths = [1500, 420, 360, 455, 390, 520];
     const gaps = [120, 142, 132, 156, 126];
     const platforms: PlatformData[] = [];
     let x = startX;
@@ -559,7 +691,7 @@ export class RunScene extends Phaser.Scene {
   }
 
   private handleMilestones(): void {
-    if (this.phase === 'underground') {
+    if (this.phase !== 'surface' && this.phase !== 'recovering') {
       return;
     }
 
@@ -637,7 +769,15 @@ export class RunScene extends Phaser.Scene {
     const anticipation = clamp(snap.vx * 0.12, -70, 160);
     const target = Math.max(0, snap.x - GAME_WIDTH * 0.34 + anticipation);
     const next = this.cameras.main.scrollX + (target - this.cameras.main.scrollX) * Math.min(1, dt * 7);
-    this.cameras.main.setScroll(next, 0);
+    const undergroundScrollY = Math.max(0, UNDERGROUND_Y - GROUND_Y);
+    const targetY =
+      this.phase === 'falling'
+        ? clamp(snap.y - GAME_HEIGHT * 0.48, 0, undergroundScrollY)
+        : this.phase === 'underground'
+          ? undergroundScrollY
+          : 0;
+    const nextY = this.cameras.main.scrollY + (targetY - this.cameras.main.scrollY) * Math.min(1, dt * 5.8);
+    this.cameras.main.setScroll(next, nextY);
   }
 
   private drawBackground(): void {
@@ -652,6 +792,7 @@ export class RunScene extends Phaser.Scene {
       { tile: this.add.tileSprite(0, GROUND_Y - 565, GAME_WIDTH, 520, 'bg-near-structures').setOrigin(0).setScrollFactor(0).setDepth(-25), scrollRatio: 0.38, drift: 0 },
       { tile: this.add.tileSprite(0, CRASH_GROUND_Y - 315, GAME_WIDTH, 340, 'bg-ground-haze').setOrigin(0).setScrollFactor(0).setDepth(-24), scrollRatio: 0.62, drift: 0 },
     ];
+    this.zoneBackdrop = this.add.graphics().setScrollFactor(0).setDepth(-23);
     this.updateBackground();
   }
 
@@ -661,6 +802,47 @@ export class RunScene extends Phaser.Scene {
 
     for (const layer of this.backgroundLayers) {
       layer.tile.tilePositionX = scrollX * layer.scrollRatio + driftTime * layer.drift;
+    }
+    this.drawZoneBackdrop(driftTime);
+  }
+
+  private drawZoneBackdrop(time: number): void {
+    this.zoneBackdrop.clear();
+
+    if (this.phase === 'aerial') {
+      this.zoneBackdrop.fillStyle(0x01031a, 0.94);
+      this.zoneBackdrop.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+      this.zoneBackdrop.fillStyle(0x2d1b58, 0.34);
+      this.zoneBackdrop.fillEllipse(GAME_WIDTH - 360, 190, 420, 132);
+      this.zoneBackdrop.lineStyle(3, 0x8cfffb, 0.18);
+      this.zoneBackdrop.strokeEllipse(GAME_WIDTH - 360, 190, 520, 166);
+      for (let i = 0; i < 95; i += 1) {
+        const x = (i * 193 + Math.floor(time * 24)) % GAME_WIDTH;
+        const y = 28 + ((i * 71) % 610);
+        const alpha = i % 7 === 0 ? 0.85 : 0.34;
+        this.zoneBackdrop.fillStyle(i % 5 === 0 ? 0x8cfffb : 0xecfff0, alpha);
+        this.zoneBackdrop.fillCircle(x, y, i % 11 === 0 ? 2.4 : 1.2);
+      }
+      this.zoneBackdrop.lineStyle(2, 0xffd36a, 0.13);
+      for (let x = -80; x < GAME_WIDTH + 160; x += 300) {
+        this.zoneBackdrop.lineBetween(x, 640 + Math.sin(time + x * 0.01) * 24, x + 210, 582 + Math.cos(time * 0.7 + x * 0.01) * 18);
+      }
+      return;
+    }
+
+    if (this.phase === 'falling') {
+      this.zoneBackdrop.fillStyle(0x010208, 0.5);
+      this.zoneBackdrop.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+      this.zoneBackdrop.lineStyle(5, 0x8cfffb, 0.14);
+      for (let x = 260; x < GAME_WIDTH; x += 440) {
+        this.zoneBackdrop.lineBetween(x + Math.sin(time * 2 + x) * 18, 0, x - 90, GAME_HEIGHT);
+      }
+      return;
+    }
+
+    if (this.phase === 'underground') {
+      this.zoneBackdrop.fillStyle(0x02040b, 0.34);
+      this.zoneBackdrop.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
     }
   }
 
@@ -801,7 +983,9 @@ export class RunScene extends Phaser.Scene {
     this.platformGraphics.clear();
     for (const platform of this.getActivePlatforms()) {
       const color =
-        platform.kind === 'underground'
+        platform.kind === 'aerial'
+          ? 0x111b42
+          : platform.kind === 'underground'
           ? 0x101a24
           : platform.kind === 'recovery'
             ? 0x14351e
@@ -815,7 +999,9 @@ export class RunScene extends Phaser.Scene {
                 ? 0x26321b
                 : this.getBiomePlatformColor(platform.x);
       const accent =
-        platform.kind === 'underground'
+        platform.kind === 'aerial'
+          ? 0x8cfffb
+          : platform.kind === 'underground'
           ? 0x8cfffb
           : platform.kind === 'recovery'
             ? 0xffd36a
@@ -849,6 +1035,13 @@ export class RunScene extends Phaser.Scene {
       if (platform.kind === 'start') {
         this.platformGraphics.fillStyle(0xffd36a, 0.16);
         this.platformGraphics.fillRoundedRect(platform.x + 24, platform.y + 10, platform.w - 48, 8, 4);
+      } else if (platform.kind === 'aerial') {
+        this.platformGraphics.fillStyle(0x8cfffb, 0.13);
+        this.platformGraphics.fillRoundedRect(platform.x + 18, platform.y + 6, platform.w - 36, 6, 4);
+        this.platformGraphics.lineStyle(2, 0xffd36a, 0.24);
+        for (let x = platform.x + 44; x < platform.x + platform.w - 34; x += 96) {
+          this.platformGraphics.lineBetween(x, platform.y + platform.h - 4, x + 42, platform.y + platform.h - 4);
+        }
       } else if (platform.kind === 'underground') {
         this.platformGraphics.lineStyle(2, 0xffd36a, 0.18);
         this.platformGraphics.lineBetween(platform.x + 18, platform.y + platform.h - 8, platform.x + platform.w - 18, platform.y + platform.h - 8);
@@ -869,7 +1062,7 @@ export class RunScene extends Phaser.Scene {
       }
     }
     this.drawImpactMarks();
-    if (this.phase !== 'underground') {
+    if (this.phase === 'surface' || this.phase === 'recovering') {
       this.drawMilestoneBeacons();
     }
   }
@@ -884,7 +1077,7 @@ export class RunScene extends Phaser.Scene {
 
     this.groundGraphics.clear();
     this.groundGraphics.fillStyle(0x071009, 1);
-    this.groundGraphics.fillRect(viewX, top, width, GAME_HEIGHT - top + 80);
+    this.groundGraphics.fillRect(viewX, top, width, WORLD_HEIGHT - top + 80);
     this.drawUndergroundBackdrop(viewX, width, startX, endX);
     this.groundGraphics.fillStyle(0x111707, 0.94);
     for (let x = startX; x < endX; x += 96) {
@@ -903,6 +1096,7 @@ export class RunScene extends Phaser.Scene {
   private drawUndergroundBackdrop(viewX: number, width: number, startX: number, endX: number): void {
     const activeTunnel =
       this.phase === 'underground' ||
+      this.phase === 'falling' ||
       this.phase === 'recovering' ||
       this.undergroundPlatforms.some((platform) => platform.x + platform.w > viewX && platform.x < viewX + width);
 
@@ -912,7 +1106,7 @@ export class RunScene extends Phaser.Scene {
 
     const ceilingY = GROUND_Y + 50;
     this.groundGraphics.fillStyle(0x050712, 0.88);
-    this.groundGraphics.fillRect(viewX, ceilingY, width, GAME_HEIGHT - ceilingY + 80);
+    this.groundGraphics.fillRect(viewX, ceilingY, width, WORLD_HEIGHT - ceilingY + 80);
     this.groundGraphics.lineStyle(4, 0x8cfffb, 0.24);
     this.groundGraphics.lineBetween(viewX, ceilingY + 12, viewX + width, ceilingY + 12);
     this.groundGraphics.lineStyle(2, 0xffd36a, 0.12);
@@ -991,6 +1185,16 @@ export class RunScene extends Phaser.Scene {
   }
 
   private updateHudText(): void {
+    if (this.phase === 'aerial') {
+      this.hudText.setText(`${this.stats.distance.toFixed(1)} m\nVOIE AERIENNE\nroute espace`);
+      return;
+    }
+
+    if (this.phase === 'falling') {
+      this.hudText.setText(`${this.stats.distance.toFixed(1)} m\nCHUTE\nsouterrain`);
+      return;
+    }
+
     if (this.phase === 'underground') {
       const boost = this.getUndergroundBoost();
       const boostDistance = boost ? Math.max(0, Math.ceil((boost.x - this.titan.getSnapshot().x) * WORLD_SCALE)) : 0;
@@ -1010,8 +1214,22 @@ export class RunScene extends Phaser.Scene {
 
   private emitHud(): void {
     const snap = this.titan.getSnapshot();
-    const nextGoalLabel = this.phase === 'underground' ? 'Boost cyan' : this.phase === 'recovering' ? 'Remontee surface' : this.getNextGoalLabel();
-    const nextGoalDistance = this.phase === 'underground' ? this.getUndergroundBoostDistance() : this.phase === 'recovering' ? 0 : this.getNextGoalDistance();
+    const nextGoalLabel =
+      this.phase === 'aerial'
+        ? 'Voie espace'
+        : this.phase === 'falling'
+          ? 'Souterrain'
+          : this.phase === 'underground'
+            ? 'Boost cyan'
+            : this.phase === 'recovering'
+              ? 'Remontee surface'
+              : this.getNextGoalLabel();
+    const nextGoalDistance =
+      this.phase === 'aerial' || this.phase === 'falling' || this.phase === 'recovering'
+        ? 0
+        : this.phase === 'underground'
+          ? this.getUndergroundBoostDistance()
+          : this.getNextGoalDistance();
     const hud: HudState = {
       distance: this.stats.distance,
       combo: this.stats.combo,
@@ -1137,6 +1355,52 @@ export class RunScene extends Phaser.Scene {
       duration: 260,
       onComplete: () => ring.destroy(),
     });
+  }
+
+  private spawnAerialEntry(x: number, y: number): void {
+    const ring = this.add.ellipse(x, y, 190, 118).setDepth(16).setStrokeStyle(5, 0x8cfffb, 0.72);
+    this.tweens.add({
+      targets: ring,
+      alpha: 0,
+      scaleX: 1.9,
+      scaleY: 0.62,
+      duration: 420,
+      onComplete: () => ring.destroy(),
+    });
+
+    for (let i = 0; i < 26; i += 1) {
+      this.createParticle(
+        x + Math.random() * 180 - 90,
+        y + Math.random() * 90 - 45,
+        -160 + Math.random() * 320,
+        -80 - Math.random() * 240,
+        Math.random() > 0.5 ? 0x8cfffb : 0xffd36a,
+        0.34 + Math.random() * 0.28,
+      );
+    }
+  }
+
+  private spawnFallShaft(x: number, y: number): void {
+    const crack = this.add.ellipse(x, y, 320, 84).setDepth(16).setStrokeStyle(7, 0xff5b46, 0.66).setFillStyle(0x02040b, 0.32);
+    this.tweens.add({
+      targets: crack,
+      alpha: 0,
+      scaleX: 1.45,
+      scaleY: 0.76,
+      duration: 620,
+      onComplete: () => crack.destroy(),
+    });
+
+    for (let i = 0; i < 30; i += 1) {
+      this.createParticle(
+        x + Math.random() * 260 - 130,
+        y - 12 + Math.random() * 42,
+        -130 + Math.random() * 260,
+        -180 - Math.random() * 260,
+        Math.random() > 0.4 ? 0x5f4a34 : 0x8cfffb,
+        0.38 + Math.random() * 0.32,
+      );
+    }
   }
 
   private spawnUndergroundTransition(x: number, y: number): void {
@@ -1308,11 +1572,11 @@ export class RunScene extends Phaser.Scene {
     }
 
     const speedRatio = Math.abs(snap.vx) / Math.max(1, this.playerStats.topSpeed + 320);
-    return boostPad || this.phase === 'recovering' || speedRatio > 0.76;
+    return boostPad || this.phase === 'aerial' || this.phase === 'recovering' || speedRatio > 0.76;
   }
 
   private spawnSpeedWind(x: number, y: number, facing: number, boosted: boolean): void {
-    this.speedWindCooldown = boosted || this.phase === 'recovering' ? 0.12 : 0.18;
+    this.speedWindCooldown = boosted || this.phase === 'aerial' || this.phase === 'recovering' ? 0.12 : 0.18;
     const color = boosted ? 0xffd36a : 0x8cfffb;
     const accent = boosted ? 0x8cfffb : 0xecfff0;
 
@@ -1338,7 +1602,7 @@ export class RunScene extends Phaser.Scene {
       });
     }
 
-    if (boosted || this.phase === 'recovering') {
+    if (boosted || this.phase === 'aerial' || this.phase === 'recovering') {
       const lens = this.add
         .ellipse(x - facing * 16, y, 140, 86)
         .setDepth(21)
@@ -1412,7 +1676,7 @@ export class RunScene extends Phaser.Scene {
     }
 
     this.ended = true;
-    const finishedUnderground = this.phase === 'underground';
+    const finishedUnderground = this.phase === 'underground' || this.phase === 'falling';
     this.phase = 'gameOver';
     const finishReason: RunSummary['finishReason'] = 'fall';
     this.titan.knockOut();
