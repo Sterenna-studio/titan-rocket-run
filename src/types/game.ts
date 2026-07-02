@@ -1,6 +1,6 @@
 export type UpgradeId = 'shoes' | 'ramp' | 'bounce' | 'rocket' | 'missile' | 'cape' | 'start' | 'suit';
 
-export type PlatformKind = 'start' | 'normal' | 'boost' | 'ramp' | 'path' | 'underground' | 'recovery' | 'aerial';
+export type PlatformKind = 'start' | 'normal' | 'boost' | 'ramp' | 'path' | 'bonus' | 'underground' | 'recovery' | 'aerial';
 
 export type CollectibleEntityKind = 'bone' | 'undergroundBoost';
 export type ObstacleEntityKind = 'seagull' | 'cable' | 'granny' | 'menhir' | 'gust';

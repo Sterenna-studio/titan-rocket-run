@@ -303,11 +303,13 @@ meter { width: calc(100% - 46px); height: 14px; vertical-align: middle; }
 .touchActions {
   display: flex;
   flex-wrap: wrap;
+  width: min(520px, 100%);
   gap: 10px;
   pointer-events: auto;
 }
 .touchBtn {
-  min-width: 62px;
+  flex: 1 1 76px;
+  min-width: 72px;
   min-height: 58px;
   padding: 0 16px;
   border: 1px solid rgba(111,255,126,.42);
@@ -326,10 +328,19 @@ meter { width: calc(100% - 46px); height: 14px; vertical-align: middle; }
   transform: translateY(3px) scale(.98);
   filter: brightness(.92);
 }
-.touchJump { min-width: 92px; }
-.touchRocket { min-width: 106px; }
+.touchJump {
+  flex: 2 1 158px;
+  min-width: 150px;
+  min-height: 68px;
+  font-size: 20px;
+}
+.touchRocket { flex: 1.2 1 112px; min-width: 108px; }
 .touchStride { min-width: 104px; }
-.touchRetry { min-width: 56px; opacity: .86; }
+.touchRetry {
+  flex: 0 0 58px;
+  min-width: 58px;
+  opacity: .86;
+}
 
 /* Overlays (title + results) */
 .snikyIntro {
@@ -539,9 +550,13 @@ meter { width: calc(100% - 46px); height: 14px; vertical-align: middle; }
     font-size: 16px;
   }
   .touchStride { min-width: 88px; }
-  .touchJump { min-width: 76px; }
+  .touchJump {
+    flex-basis: 142px;
+    min-width: 138px;
+    min-height: 64px;
+  }
   .touchRocket { min-width: 92px; }
-  .touchRetry { min-width: 48px; }
+  .touchRetry { flex-basis: 48px; min-width: 48px; }
 }
 
 @media (max-height: 620px) and (orientation: landscape) {
@@ -704,7 +719,11 @@ meter { width: calc(100% - 46px); height: 14px; vertical-align: middle; }
     font-size: 14px;
   }
   .touchStride { min-width: 74px; }
-  .touchJump { min-width: 62px; }
+  .touchJump {
+    flex-basis: 116px;
+    min-width: 112px;
+    min-height: 58px;
+  }
   .touchRocket { min-width: 74px; }
   .stats { grid-template-columns: 1fr; }
   .scoreForm div { grid-template-columns: 1fr; }

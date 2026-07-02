@@ -45,16 +45,24 @@ export class PlatformGenerator {
   decorate(platform: PlatformData): EntityDraft[] {
     const difficulty = this.curve.sample(platform.x);
     const entities: EntityDraft[] = [];
-    const boneCount = platform.kind === 'path' ? 3 + Math.floor(this.random() * 3) : 1 + Math.floor(this.random() * 2);
+    const boneCount =
+      platform.kind === 'bonus'
+        ? 4 + Math.floor(this.random() * 2)
+        : platform.kind === 'path'
+          ? 3 + Math.floor(this.random() * 3)
+          : 1 + Math.floor(this.random() * 2);
 
     for (let i = 0; i < boneCount; i += 1) {
-      const floating = this.random() < (platform.kind === 'path' ? difficulty.floatingBoneChance * 0.58 : difficulty.floatingBoneChance);
+      const floating =
+        platform.kind === 'bonus'
+          ? true
+          : this.random() < (platform.kind === 'path' ? difficulty.floatingBoneChance * 0.58 : difficulty.floatingBoneChance);
       entities.push({
         type: 'bone',
         x: platform.x + 55 + this.random() * Math.max(60, platform.w - 110),
-        y: platform.y - (floating ? 118 + this.random() * 72 : 62),
+        y: platform.y - (floating ? 118 + this.random() * (platform.kind === 'bonus' ? 44 : 72) : 62),
         r: 19,
-        value: floating ? 5 : 3,
+        value: platform.kind === 'bonus' ? 7 : floating ? 5 : 3,
         bob: this.random() * Math.PI * 2,
       });
     }
@@ -65,6 +73,30 @@ export class PlatformGenerator {
     }
 
     return entities;
+  }
+
+  createBonusBranch(platform: PlatformData, id: number): PlatformData | undefined {
+    const difficulty = this.curve.sample(platform.x);
+    if (platform.id < 5 || platform.kind === 'boost' || platform.kind === 'ramp' || platform.w < 360) {
+      return undefined;
+    }
+
+    const chance = 0.22 + difficulty.value * 0.12 + (platform.kind === 'path' ? 0.1 : 0);
+    if (this.random() > chance) {
+      return undefined;
+    }
+
+    const maxWidth = Math.max(210, Math.min(340, platform.w - 136));
+    const width = clamp(platform.w * (0.42 + this.random() * 0.14), 210, maxWidth);
+    const maxOffset = Math.max(84, platform.w - width - 36);
+    return {
+      id,
+      x: platform.x + clamp(platform.w * (0.18 + this.random() * 0.32), 84, maxOffset),
+      y: clamp(platform.y - 155 - this.random() * 78, GROUND_Y - 305, GROUND_Y - 122),
+      w: width,
+      h: 22 + this.random() * 6,
+      kind: 'bonus',
+    };
   }
 
   private lerp(min: number, max: number, ratio: number): number {
@@ -117,7 +149,7 @@ export class PlatformGenerator {
   }
 
   private createObstacle(platform: PlatformData, difficulty: number): EntityDraft | undefined {
-    if (platform.id < 4 || platform.w < 270 || platform.kind === 'boost' || platform.kind === 'ramp') {
+    if (platform.id < 4 || platform.w < 270 || platform.kind === 'boost' || platform.kind === 'ramp' || platform.kind === 'bonus') {
       return undefined;
     }
 

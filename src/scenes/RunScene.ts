@@ -1011,6 +1011,48 @@ export class RunScene extends Phaser.Scene {
       for (let x = -60; x < GAME_WIDTH + 120; x += 180) {
         this.zoneBackdrop.fillEllipse(x, GROUND_Y - 300 + Math.sin(time + x) * 14, 240, 42);
       }
+      this.zoneBackdrop.lineStyle(5, 0x2b6d43, 0.32);
+      for (let x = -60; x < GAME_WIDTH + 120; x += 155) {
+        const rootBase = GROUND_Y - 155 + Math.sin(time * 0.8 + x * 0.02) * 9;
+        this.zoneBackdrop.lineBetween(x, rootBase, x + 70, rootBase - 82);
+        this.zoneBackdrop.lineBetween(x + 70, rootBase - 82, x + 138, rootBase - 18);
+      }
+      this.zoneBackdrop.fillStyle(0xd6a0ff, 0.28);
+      for (let x = 36; x < GAME_WIDTH + 80; x += 210) {
+        this.zoneBackdrop.fillCircle(x, GROUND_Y - 246 + Math.sin(time * 1.8 + x) * 12, 6);
+      }
+      return;
+    }
+
+    if (biome === 2) {
+      this.zoneBackdrop.fillStyle(0x31283f, 0.2);
+      this.zoneBackdrop.fillRect(0, SKY_Y + 74, GAME_WIDTH, CRASH_GROUND_Y - SKY_Y - 74);
+      this.zoneBackdrop.fillStyle(0x9b8f82, 0.42);
+      for (let x = -80; x < GAME_WIDTH + 160; x += 124) {
+        const h = 138 + ((x + 300) % 4) * 18;
+        this.zoneBackdrop.fillRoundedRect(x + 34, GROUND_Y - 160 - h, 42, h, 18);
+      }
+      this.zoneBackdrop.lineStyle(3, 0xffd36a, 0.18 + Math.sin(time * 2) * 0.04);
+      for (let y = GROUND_Y - 410; y < GROUND_Y - 210; y += 54) {
+        this.zoneBackdrop.lineBetween(0, y, GAME_WIDTH, y + Math.sin(time + y) * 12);
+      }
+      return;
+    }
+
+    if (biome === 3) {
+      this.zoneBackdrop.fillStyle(0x26313d, 0.22);
+      this.zoneBackdrop.fillRect(0, SKY_Y + 58, GAME_WIDTH, CRASH_GROUND_Y - SKY_Y - 58);
+      this.zoneBackdrop.lineStyle(4, 0x8cfffb, 0.16);
+      for (let x = -80; x < GAME_WIDTH + 180; x += 260) {
+        const base = GROUND_Y - 186;
+        this.zoneBackdrop.lineBetween(x + 40, base, x + 40, base - 230);
+        this.zoneBackdrop.lineBetween(x + 40, base - 230, x + 175, base - 180);
+        this.zoneBackdrop.lineBetween(x + 175, base - 180, x + 215, base - 126);
+      }
+      this.zoneBackdrop.lineStyle(2, 0x65d9ff, 0.2);
+      for (let x = -20; x < GAME_WIDTH + 80; x += 72) {
+        this.zoneBackdrop.lineBetween(x + Math.sin(time * 2 + x) * 8, SKY_Y + 130, x - 42, GROUND_Y - 104);
+      }
     }
   }
 
@@ -1159,6 +1201,8 @@ export class RunScene extends Phaser.Scene {
             ? 0x14351e
             : platform.kind === 'boost'
           ? COLORS.boost
+          : platform.kind === 'bonus'
+            ? 0x2d2748
           : platform.kind === 'path'
             ? 0x14351e
             : platform.kind === 'ramp'
@@ -1175,6 +1219,8 @@ export class RunScene extends Phaser.Scene {
             ? 0xffd36a
             : platform.kind === 'boost'
           ? COLORS.green
+          : platform.kind === 'bonus'
+            ? 0xffd36a
           : platform.kind === 'path'
             ? 0x8cfffb
             : platform.kind === 'ramp'
@@ -1220,6 +1266,13 @@ export class RunScene extends Phaser.Scene {
       } else if (platform.kind === 'recovery') {
         this.platformGraphics.fillStyle(0x8cfffb, 0.16);
         this.platformGraphics.fillRoundedRect(platform.x + 22, platform.y + 8, platform.w - 44, 7, 4);
+      } else if (platform.kind === 'bonus') {
+        this.platformGraphics.fillStyle(0xffd36a, 0.18);
+        this.platformGraphics.fillRoundedRect(platform.x + 16, platform.y + 6, platform.w - 32, 5, 3);
+        this.platformGraphics.lineStyle(2, 0x8cfffb, 0.24);
+        for (let x = platform.x + 34; x < platform.x + platform.w - 24; x += 58) {
+          this.platformGraphics.lineBetween(x, platform.y + platform.h + 6, x + 24, platform.y + platform.h + 6);
+        }
       } else if (platform.kind === 'path') {
         this.platformGraphics.lineStyle(2, 0x071009, 0.42);
         this.platformGraphics.lineBetween(platform.x + 18, platform.y + platform.h * 0.5, platform.x + platform.w - 18, platform.y + platform.h * 0.5);

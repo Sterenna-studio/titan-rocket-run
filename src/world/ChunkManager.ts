@@ -45,20 +45,20 @@ export class ChunkManager {
     const target = cameraX + viewportWidth + WORLD_AHEAD;
 
     while (this.furthestX < target) {
-      const previous = this.platformList[this.platformList.length - 1];
+      const previous = this.getLastMainPlatform();
       const platform = this.generator.nextPlatform(previous, this.nextPlatformId);
       this.nextPlatformId += 1;
       this.platformList.push(platform);
-      this.furthestX = platform.x + platform.w;
+      this.furthestX = Math.max(this.furthestX, platform.x + platform.w);
 
-      for (const draft of this.generator.decorate(platform)) {
-        this.entityList.push({
-          id: this.nextEntityId,
-          hit: false,
-          grazed: false,
-          ...draft,
-        });
-        this.nextEntityId += 1;
+      this.addDecorations(platform);
+
+      const bonus = this.generator.createBonusBranch(platform, this.nextPlatformId);
+      if (bonus) {
+        this.nextPlatformId += 1;
+        this.platformList.push(bonus);
+        this.furthestX = Math.max(this.furthestX, bonus.x + bonus.w);
+        this.addDecorations(bonus);
       }
     }
 
@@ -77,6 +77,28 @@ export class ChunkManager {
     if (entity) {
       entity.grazed = true;
     }
+  }
+
+  private addDecorations(platform: PlatformData): void {
+    for (const draft of this.generator.decorate(platform)) {
+      this.entityList.push({
+        id: this.nextEntityId,
+        hit: false,
+        grazed: false,
+        ...draft,
+      });
+      this.nextEntityId += 1;
+    }
+  }
+
+  private getLastMainPlatform(): PlatformData {
+    for (let i = this.platformList.length - 1; i >= 0; i -= 1) {
+      if (this.platformList[i].kind !== 'bonus') {
+        return this.platformList[i];
+      }
+    }
+
+    return this.platformList[0];
   }
 
   private prune(cameraX: number): void {

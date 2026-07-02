@@ -64,9 +64,10 @@ La base actuelle est volontairement simple et propre avant de reintroduire les g
 - HUD global avec record, os, nombre de runs et signaux bretons debloques ;
 - vraie chute vers le souterrain : Titan perce la piste, tombe avec suivi camera, puis atterrit sur la piste basse de rattrapage ;
 - route aerienne espace : si Titan monte assez haut, il accroche une voie spatiale avec fond dedie, plateformes fines et os hauts ;
+- embranchements bonus hauts : certaines plateformes principales gardent une route sure, avec une petite plateforme haute plus risquee et plus rentable en os ;
 - lancement charge court : maintenir `Espace`, relacher dans la zone verte pour partir avec rocket pleine et vitesse bonus ;
 - UI de resultat progressive : distance, vitesse, combo, signaux et recompense comptent avant l'inscription du score ;
-- premier biome Saint-Malo lisible : palette pierre/mer, remparts en fond, mouettes, rafales et cables comme obstacles signatures ;
+- biomes surface plus lisibles : Saint-Malo pierre/mer, Broceliande brume/racines, Carnac menhirs/alignements et Brest port/pluie ;
 - obstacles non letaux : ils cassent la combo, secouent Titan et donnent un court etat d'invulnerabilite ;
 - controles clavier remappables et persistants dans le panneau `Touches` ;
 - support manette basique via Gamepad API : stick/d-pad, bouton bas pour sauter, `RB`/`RT` pour rocket ;
@@ -74,7 +75,7 @@ La base actuelle est volontairement simple et propre avant de reintroduire les g
 - chaque signal donne os, rocket et relance de vitesse pour rendre la progression plus lisible ;
 - stretch leger de Titan, squash d'atterrissage et lignes de vent rendent les pics de vitesse plus visibles ;
 - Titan ne perd plus automatiquement ses bonus de vitesse en courant ; seule une correction volontaire vers la gauche le ralentit ;
-- l'equilibrage fin des obstacles, du mobile et des routes bonus reste a poursuivre.
+- l'equilibrage fin des obstacles, de l'economie d'os et des routes bonus reste a poursuivre.
 
 ## Debug
 
