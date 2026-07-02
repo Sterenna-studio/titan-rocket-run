@@ -87,6 +87,7 @@ export class RunScene extends Phaser.Scene {
   private jumpBuffer = 0;
   private boostSoundCooldown = 0;
   private rocketVisualCooldown = 0;
+  private speedWindCooldown = 0;
   private nextOverdriveCombo = 6;
   private lastCrashMessageAt = 0;
   private debugVisible = false;
@@ -113,6 +114,7 @@ export class RunScene extends Phaser.Scene {
     this.reachedMilestones.clear();
     this.lastCrashMessageAt = 0;
     this.rocketVisualCooldown = 0;
+    this.speedWindCooldown = 0;
     this.nextOverdriveCombo = 6;
     this.ended = false;
     this.phase = 'surface';
@@ -202,6 +204,7 @@ export class RunScene extends Phaser.Scene {
     this.jumpBuffer = Math.max(0, this.jumpBuffer - dt);
     this.boostSoundCooldown = Math.max(0, this.boostSoundCooldown - dt);
     this.rocketVisualCooldown = Math.max(0, this.rocketVisualCooldown - dt);
+    this.speedWindCooldown = Math.max(0, this.speedWindCooldown - dt);
     this.updateRecoveryTimer(dt);
     this.chunk.ensure(this.cameras.main.scrollX, GAME_WIDTH);
 
@@ -235,6 +238,8 @@ export class RunScene extends Phaser.Scene {
     }
     if (result.rocketUsed) {
       this.spawnRocketTrail(snap.x, snap.y + snap.h * 0.5, snap.vx >= 0 ? 1 : -1);
+    } else if (this.shouldSpawnSpeedWind(snap, result.boostPad)) {
+      this.spawnSpeedWind(snap.x, snap.y + snap.h * 0.48, snap.vx >= 0 ? 1 : -1, result.boostPad);
     }
 
     this.handleEntities();
@@ -1293,6 +1298,60 @@ export class RunScene extends Phaser.Scene {
         scaleX: 1.35,
         duration: 170 + Math.random() * 80,
         onComplete: () => line.destroy(),
+      });
+    }
+  }
+
+  private shouldSpawnSpeedWind(snap: PlayerSnapshot, boostPad: boolean): boolean {
+    if (this.speedWindCooldown > 0) {
+      return false;
+    }
+
+    const speedRatio = Math.abs(snap.vx) / Math.max(1, this.playerStats.topSpeed + 320);
+    return boostPad || this.phase === 'recovering' || speedRatio > 0.76;
+  }
+
+  private spawnSpeedWind(x: number, y: number, facing: number, boosted: boolean): void {
+    this.speedWindCooldown = boosted || this.phase === 'recovering' ? 0.12 : 0.18;
+    const color = boosted ? 0xffd36a : 0x8cfffb;
+    const accent = boosted ? 0x8cfffb : 0xecfff0;
+
+    for (let i = 0; i < 4; i += 1) {
+      const line = this.add
+        .rectangle(
+          x - facing * (72 + Math.random() * 150),
+          y + Math.random() * 126 - 63,
+          48 + Math.random() * (boosted ? 84 : 52),
+          boosted ? 5 : 3,
+          i % 2 === 0 ? color : accent,
+          boosted ? 0.36 : 0.24,
+        )
+        .setDepth(22)
+        .setRotation((Math.random() - 0.5) * 0.1);
+      this.tweens.add({
+        targets: line,
+        x: line.x - facing * (120 + Math.random() * 90),
+        alpha: 0,
+        scaleX: boosted ? 1.55 : 1.28,
+        duration: boosted ? 190 : 230,
+        onComplete: () => line.destroy(),
+      });
+    }
+
+    if (boosted || this.phase === 'recovering') {
+      const lens = this.add
+        .ellipse(x - facing * 16, y, 140, 86)
+        .setDepth(21)
+        .setStrokeStyle(3, 0x8cfffb, 0.22)
+        .setFillStyle(0x8cfffb, 0.014);
+      this.tweens.add({
+        targets: lens,
+        x: lens.x - facing * 32,
+        alpha: 0,
+        scaleX: 1.22,
+        scaleY: 0.72,
+        duration: 190,
+        onComplete: () => lens.destroy(),
       });
     }
   }

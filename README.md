@@ -63,6 +63,7 @@ La base actuelle est volontairement simple et propre avant de reintroduire les g
 - seconde chance souterraine : une chute de surface envoie Titan sur une piste basse de rattrapage, avec boost cyan pour remonter ;
 - progression par lieux bretons : Garage de Sniky, Remparts de Saint-Malo, Brume de Broceliande, Alignements de Carnac, Port de Brest, Signal des Monts d'Arree ;
 - chaque signal donne os, rocket et relance de vitesse pour rendre la progression plus lisible ;
+- stretch leger de Titan, squash d'atterrissage et lignes de vent rendent les pics de vitesse plus visibles ;
 - le lancement charge court, les obstacles vivants et les controles remappables restent dans la guideline V1, pas encore dans la boucle jouable.
 
 ## Debug

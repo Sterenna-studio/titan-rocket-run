@@ -18,7 +18,7 @@ import type {
   PlayerStats,
   PlayerStepResult,
 } from '../types/game';
-import { defaultTitanFrame, scaleTitanSprite, titanAnimKey } from './TitanAnimations';
+import { defaultTitanFrame, getTitanFrameScale, scaleTitanSprite, titanAnimKey } from './TitanAnimations';
 
 type TitanAnimationName = 'idle' | 'walk' | 'run' | 'jump' | 'bark_energy_blast' | 'hurt' | 'knockout';
 
@@ -31,6 +31,8 @@ export class TitanController {
   private currentAnimation: TitanAnimationName = 'idle';
   private rotation = 0;
   private speedBonus = 0;
+  private speedStretch = 0;
+  private landingSquash = 0;
 
   constructor(private readonly scene: Phaser.Scene, stats: PlayerStats) {
     this.stats = stats;
@@ -49,6 +51,8 @@ export class TitanController {
     this.facing = 1;
     this.rotation = 0;
     this.speedBonus = 0;
+    this.speedStretch = 0;
+    this.landingSquash = 0;
     this.currentAnimation = 'idle';
     this.play('run');
     this.syncSprite();
@@ -62,6 +66,8 @@ export class TitanController {
 
     this.state.hurt = Math.max(0, this.state.hurt - dt);
     this.state.invuln = Math.max(0, this.state.invuln - dt);
+    this.speedStretch = Math.max(0, this.speedStretch - dt * 3.2);
+    this.landingSquash = Math.max(0, this.landingSquash - dt * 5.8);
 
     this.facing = 1;
     this.applyRunnerSpeed(dt, input);
@@ -73,6 +79,7 @@ export class TitanController {
       }
       this.state.rocketFuel = Math.max(0, this.state.rocketFuel - 48 * dt);
       rocketUsed = true;
+      this.speedStretch = Math.max(this.speedStretch, 0.065);
     } else if (this.state.grounded) {
       this.state.rocketFuel = Math.min(this.stats.rocketMax, this.state.rocketFuel + (this.stats.hasSpaceSuit ? 13 : 10) * dt);
     }
@@ -95,6 +102,12 @@ export class TitanController {
     boostPad = collision.boostPad;
     if (boostPad && Math.abs(this.state.vx) < this.stats.topSpeed * 0.96) {
       this.state.vx += 190;
+    }
+    if (boostPad) {
+      this.speedStretch = Math.max(this.speedStretch, 0.085);
+    }
+    if (collision.landed) {
+      this.landingSquash = Math.max(this.landingSquash, clamp((impactVy - 280) / 760, 0.08, 1));
     }
 
     if (collision.landed && input.jumpHeld && this.stats.bouncePower > 0 && impactVy > 360) {
@@ -155,6 +168,7 @@ export class TitanController {
     const rocketGain = this.stats.rocketMax * clamp(rocketPercent, 0, 100) / 100;
     this.state.rocketFuel = Math.min(this.stats.rocketMax, this.state.rocketFuel + rocketGain);
     this.speedBonus = Math.max(this.speedBonus, speedBoost * 0.28);
+    this.speedStretch = Math.max(this.speedStretch, clamp(speedBoost / 2600, 0.04, 0.13));
     this.state.vx += speedBoost * 0.18;
     this.syncSprite();
   }
@@ -178,6 +192,8 @@ export class TitanController {
     this.state.hurt = 0;
     this.state.invuln = Math.max(this.state.invuln, invuln);
     this.speedBonus = Math.max(this.speedBonus, speedBonus);
+    this.speedStretch = Math.max(this.speedStretch, clamp(speedBonus / 3600, 0.06, 0.16));
+    this.landingSquash = Math.max(this.landingSquash, 0.18);
     this.rotation = 0;
     this.play('run', true);
     this.syncSprite();
@@ -331,6 +347,17 @@ export class TitanController {
     this.sprite.setFlipX(this.facing < 0);
     this.sprite.setRotation(this.rotation);
     this.sprite.setAlpha(this.state.invuln > 0 && Math.floor(this.scene.time.now / 80) % 2 === 0 ? 0.55 : 1);
+    const baseScale = getTitanFrameScale(this.scene, this.sprite);
+    const speedRatio = clamp(
+      (Math.abs(this.state.vx) - this.stats.startVelocity * 0.95) / Math.max(1, this.stats.topSpeed + this.speedBonus + 240 - this.stats.startVelocity),
+      0,
+      1,
+    );
+    const stretchX = 1 + speedRatio * 0.075 + this.speedStretch;
+    const stretchY = 1 - speedRatio * 0.038 - this.speedStretch * 0.36;
+    const squashX = 1 + this.landingSquash * 0.13;
+    const squashY = 1 - this.landingSquash * 0.16;
+    this.sprite.setScale(baseScale * stretchX * squashX, baseScale * Math.max(0.78, stretchY * squashY));
   }
 
   private setCoyote(value: number): void {

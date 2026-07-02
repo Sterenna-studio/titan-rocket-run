@@ -47,8 +47,12 @@ export function registerTitanAnimations(scene: Phaser.Scene, manifest: TitanAnim
   });
 }
 
-export function scaleTitanSprite(scene: Phaser.Scene, sprite: Phaser.GameObjects.Sprite): void {
+export function getTitanFrameScale(scene: Phaser.Scene, sprite: Phaser.GameObjects.Sprite): number {
   const frame = sprite.frame || scene.textures.getFrame(defaultTitanFrame());
   const sourceHeight = frame?.height || 395;
-  sprite.setScale(TITAN_DISPLAY_HEIGHT / sourceHeight);
+  return TITAN_DISPLAY_HEIGHT / sourceHeight;
+}
+
+export function scaleTitanSprite(scene: Phaser.Scene, sprite: Phaser.GameObjects.Sprite): void {
+  sprite.setScale(getTitanFrameScale(scene, sprite));
 }
