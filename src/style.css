@@ -336,7 +336,7 @@ meter { width: calc(100% - 46px); height: 14px; vertical-align: middle; }
 }
 .touchRocket { flex: 1.2 1 112px; min-width: 108px; }
 .touchStride { min-width: 104px; }
-.touchRetry {
+.touchPause {
   flex: 0 0 58px;
   min-width: 58px;
   opacity: .86;
@@ -556,7 +556,7 @@ meter { width: calc(100% - 46px); height: 14px; vertical-align: middle; }
     min-height: 64px;
   }
   .touchRocket { min-width: 92px; }
-  .touchRetry { flex-basis: 48px; min-width: 48px; }
+  .touchPause { flex-basis: 64px; min-width: 64px; }
 }
 
 @media (max-height: 620px) and (orientation: landscape) {

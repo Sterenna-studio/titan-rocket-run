@@ -37,10 +37,11 @@ Le workflow OVH installe les dépendances avec `npm ci`, lance `npm run build`, 
 - `A` / `D` ou flèches gauche/droite : correction légère de trajectoire.
 - `Espace` : charge le depart au menu, puis saut avec air-jump pendant la run.
 - `Shift` : boost rocket court, au sol comme en l'air.
+- `P` / `Esc` : pause, avec reprise sans quitter la run.
 - `R` : relancer la run avec la même seed.
-- Panneau `Touches` : remap clavier persistant pour gauche, droite, saut, rocket et retry.
-- Manette : stick gauche / d-pad pour corriger, `A` / bouton bas pour sauter, `RB` / `RT` pour la rocket.
-- En tactile : boutons `Saut`, `Rocket` et `R`.
+- Panneau `Touches` : remap clavier persistant pour gauche, droite, saut, rocket, pause et retry.
+- Manette : stick gauche / d-pad pour corriger, `A` / bouton bas pour sauter, `RB` / `RT` pour la rocket, `Start` pour pause.
+- En tactile : boutons `Saut`, `Rocket` et `Pause`.
 - Chute sous la piste : vraie transition vers le souterrain de rattrapage, puis game over si Titan retombe.
 - Les os donnent des bonus, montent le combo et rendent un peu de rocket.
 - Les plateformes restent sur une route basse et lisible ; la difficulté vient surtout du timing des gaps.
@@ -68,9 +69,10 @@ La base actuelle est volontairement simple et propre avant de reintroduire les g
 - lancement charge court : maintenir `Espace`, relacher dans la zone verte pour partir avec rocket pleine et vitesse bonus ;
 - UI de resultat progressive : distance, vitesse, combo, signaux et recompense comptent avant l'inscription du score ;
 - biomes surface plus lisibles : Saint-Malo pierre/mer, Broceliande brume/racines, Carnac menhirs/alignements et Brest port/pluie ;
+- HUD de run nomme le biome courant et annonce les transitions de lieu ;
 - obstacles non letaux : ils cassent la combo, secouent Titan et donnent un court etat d'invulnerabilite ;
 - controles clavier remappables et persistants dans le panneau `Touches` ;
-- support manette basique via Gamepad API : stick/d-pad, bouton bas pour sauter, `RB`/`RT` pour rocket ;
+- support manette basique via Gamepad API : stick/d-pad, bouton bas pour sauter, `RB`/`RT` pour rocket, `Start` pour pause et vibrations courtes sur chocs/boosts ;
 - progression par lieux bretons : Garage de Sniky, Remparts de Saint-Malo, Brume de Broceliande, Alignements de Carnac, Port de Brest, Signal des Monts d'Arree ;
 - chaque signal donne os, rocket et relance de vitesse pour rendre la progression plus lisible ;
 - stretch leger de Titan, squash d'atterrissage et lignes de vent rendent les pics de vitesse plus visibles ;

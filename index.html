@@ -29,8 +29,8 @@
           <div class="controlRow"><span class="controlKeys"><kbd>A</kbd><kbd>D</kbd></span><span>corriger legerement la trajectoire</span></div>
           <div class="controlRow"><span class="controlKeys"><kbd>Espace</kbd></span><span>charger le depart, puis sauter / air-jump</span></div>
           <div class="controlRow"><span class="controlKeys"><kbd>Shift</kbd></span><span>boost rocket court</span></div>
-          <div class="controlRow"><span class="controlKeys"><kbd>R</kbd></span><span>relancer</span></div>
-          <div class="controlRow"><span class="controlKeys"><kbd>Pad A</kbd><kbd>RB</kbd></span><span>sauter / rocket avec manette</span></div>
+          <div class="controlRow"><span class="controlKeys"><kbd>P</kbd><kbd>R</kbd></span><span>pause / relancer</span></div>
+          <div class="controlRow"><span class="controlKeys"><kbd>Pad A</kbd><kbd>RB</kbd></span><span>sauter / rocket, Start = pause</span></div>
         </div>
 
         <h2>Touches</h2>
@@ -39,6 +39,7 @@
           <button class="bindBtn" type="button" data-action="right"><span>Droite</span><b data-bind-label="right">D / →</b></button>
           <button class="bindBtn" type="button" data-action="jump"><span>Saut</span><b data-bind-label="jump">Espace</b></button>
           <button class="bindBtn" type="button" data-action="rocket"><span>Rocket</span><b data-bind-label="rocket">Shift</b></button>
+          <button class="bindBtn" type="button" data-action="pause"><span>Pause</span><b data-bind-label="pause">P / Esc</b></button>
           <button class="bindBtn" type="button" data-action="restart"><span>Retry</span><b data-bind-label="restart">R</b></button>
           <button id="controlReset" class="ghostBtn compact" type="button">Reset touches</button>
         </div>
@@ -73,7 +74,7 @@
             <div class="touchActions" aria-label="Actions">
               <button type="button" class="touchBtn touchJump" data-key="space">Saut</button>
               <button type="button" class="touchBtn touchRocket" data-key="shift">Rocket</button>
-              <button type="button" class="touchBtn touchRetry" data-key="r">R</button>
+              <button type="button" class="touchBtn touchPause" data-key="pause">Pause</button>
             </div>
           </div>
 

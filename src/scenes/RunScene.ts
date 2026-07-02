@@ -61,6 +61,21 @@ interface ImpactMark {
   seed: number;
 }
 
+interface SurfaceBiome {
+  title: string;
+  hint: string;
+  color: number;
+}
+
+type HapticGamepad = Gamepad & {
+  vibrationActuator?: {
+    playEffect?: (
+      type: 'dual-rumble',
+      params: { duration: number; startDelay?: number; strongMagnitude?: number; weakMagnitude?: number },
+    ) => Promise<unknown>;
+  };
+};
+
 type RunPhase = 'surface' | 'aerial' | 'falling' | 'underground' | 'recovering' | 'gameOver';
 
 const SCRIPTED_ID_START = 100000;
@@ -69,6 +84,12 @@ const RECOVERY_DURATION = 1.15;
 const AERIAL_ENTER_Y = SKY_Y + 150;
 const AERIAL_EXIT_BOTTOM_Y = SKY_Y + 300;
 const AERIAL_COOLDOWN = 2.4;
+const SURFACE_BIOMES: SurfaceBiome[] = [
+  { title: 'Saint-Malo', hint: 'mouettes, rafales, remparts', color: 0x65d9ff },
+  { title: 'Broceliande', hint: 'brume, racines, pierres vertes', color: 0xd6a0ff },
+  { title: 'Carnac', hint: 'menhirs, alignements, route haute', color: 0xffd36a },
+  { title: 'Brest', hint: 'port, pluie, cables au sol', color: 0x8cfffb },
+];
 
 export class RunScene extends Phaser.Scene {
   private seed = '';
@@ -105,9 +126,12 @@ export class RunScene extends Phaser.Scene {
   private debugVisible = false;
   private hitboxesVisible = false;
   private ended = false;
+  private paused = false;
   private phase: RunPhase = 'surface';
   private recoveryTimer = 0;
   private aerialCooldown = 0;
+  private lastGamepadPauseHeld = false;
+  private currentBiomeIndex = 0;
   private nextScriptedId = SCRIPTED_ID_START;
   private aerialPlatforms: PlatformData[] = [];
   private aerialEntities: WorldEntity[] = [];
@@ -136,9 +160,12 @@ export class RunScene extends Phaser.Scene {
     this.nextOverdriveCombo = 6;
     this.lastJumpHeld = false;
     this.ended = false;
+    this.paused = false;
     this.phase = 'surface';
     this.recoveryTimer = 0;
     this.aerialCooldown = 0;
+    this.lastGamepadPauseHeld = false;
+    this.currentBiomeIndex = this.getBiomeIndex(START_X);
     this.nextScriptedId = SCRIPTED_ID_START;
     this.aerialPlatforms = [];
     this.aerialEntities = [];
@@ -230,6 +257,16 @@ export class RunScene extends Phaser.Scene {
       return;
     }
 
+    this.updateGamepadPauseEdge();
+    if (this.paused) {
+      this.updateCamera(dt);
+      this.updateBackground();
+      this.updateHudText();
+      this.updateDebug();
+      this.emitHud();
+      return;
+    }
+
     this.jumpBuffer = Math.max(0, this.jumpBuffer - dt);
     this.boostSoundCooldown = Math.max(0, this.boostSoundCooldown - dt);
     this.rocketVisualCooldown = Math.max(0, this.rocketVisualCooldown - dt);
@@ -263,6 +300,7 @@ export class RunScene extends Phaser.Scene {
     if (result.boostPad) {
       if (this.boostSoundCooldown <= 0) {
         soundSystem.boost();
+        this.pulseHaptics(55, 0.18, 0.38);
         this.boostSoundCooldown = 0.22;
       }
       this.spawnBurst(snap.x, snap.y + snap.h, 9, 0x62ff52);
@@ -275,6 +313,7 @@ export class RunScene extends Phaser.Scene {
 
     this.handleEntities();
     this.updateStats();
+    this.handleBiomeTransitions();
     this.handleMilestones();
     this.updateCamera(dt);
     this.updateBackground();
@@ -297,6 +336,8 @@ export class RunScene extends Phaser.Scene {
     keyboard.addCapture([
       Phaser.Input.Keyboard.KeyCodes.SPACE,
       Phaser.Input.Keyboard.KeyCodes.SHIFT,
+      Phaser.Input.Keyboard.KeyCodes.P,
+      Phaser.Input.Keyboard.KeyCodes.ESC,
       Phaser.Input.Keyboard.KeyCodes.F3,
       Phaser.Input.Keyboard.KeyCodes.F5,
       Phaser.Input.Keyboard.KeyCodes.H,
@@ -333,6 +374,14 @@ export class RunScene extends Phaser.Scene {
       return;
     }
 
+    if (controlSettings.matches('pause', event.code)) {
+      event.preventDefault();
+      if (!wasDown) {
+        this.togglePause();
+      }
+      return;
+    }
+
     if (event.code === 'F3') {
       event.preventDefault();
       this.debugVisible = !this.debugVisible;
@@ -356,6 +405,13 @@ export class RunScene extends Phaser.Scene {
   }
 
   private handleVirtualInput(input: VirtualInput): void {
+    if (input.key === 'pause') {
+      if (input.down) {
+        this.togglePause();
+      }
+      return;
+    }
+
     if (input.down) {
       this.virtualDown.add(input.key);
       if (input.key === 'space') {
@@ -406,6 +462,47 @@ export class RunScene extends Phaser.Scene {
       rocket: Boolean(pad.buttons[5]?.pressed || pad.buttons[7]?.pressed),
       jumpHeld: Boolean(pad.buttons[0]?.pressed || pad.buttons[1]?.pressed),
     };
+  }
+
+  private updateGamepadPauseEdge(): void {
+    const pads = navigator.getGamepads?.() || [];
+    const pad = Array.from(pads).find((candidate): candidate is Gamepad => Boolean(candidate));
+    const pauseHeld = Boolean(pad?.buttons[9]?.pressed || pad?.buttons[8]?.pressed);
+    if (pauseHeld && !this.lastGamepadPauseHeld) {
+      this.togglePause();
+    }
+    this.lastGamepadPauseHeld = pauseHeld;
+  }
+
+  private togglePause(): void {
+    if (this.ended || this.phase === 'gameOver') {
+      return;
+    }
+
+    this.paused = !this.paused;
+    this.pulseHaptics(this.paused ? 38 : 52, this.paused ? 0.12 : 0.18, this.paused ? 0.24 : 0.34);
+    this.showPhaseBanner(this.paused ? 'Pause' : 'Reprise', this.paused ? 'P, Start ou Pause tactile pour reprendre' : 'Retour a la course');
+    this.game.events.emit(GameEvents.Message, {
+      title: this.paused ? 'Pause' : 'Reprise',
+      body: this.paused ? 'La run est figee. Reprends avec Pause ou Start.' : 'Titan repart sur la ligne.',
+    });
+  }
+
+  private pulseHaptics(duration: number, strongMagnitude: number, weakMagnitude: number): void {
+    const pads = navigator.getGamepads?.() || [];
+    for (const pad of pads) {
+      const actuator = (pad as HapticGamepad | null)?.vibrationActuator;
+      void actuator?.playEffect?.('dual-rumble', {
+        duration,
+        startDelay: 0,
+        strongMagnitude,
+        weakMagnitude,
+      });
+    }
+
+    if (window.navigator.vibrate && duration >= 75) {
+      window.navigator.vibrate(Math.min(80, duration));
+    }
   }
 
   private updateJumpInputEdges(jumpHeld: boolean): void {
@@ -462,6 +559,7 @@ export class RunScene extends Phaser.Scene {
 
       this.stats.combo = 0;
       soundSystem.hit();
+      this.pulseHaptics(entity.type === 'menhir' ? 120 : 75, entity.type === 'menhir' ? 0.48 : 0.26, 0.58);
       const feedback = this.getObstacleFeedback(entity.type);
       this.spawnObstacleImpact(entity, feedback.color);
       this.cameras.main.shake(95, entity.type === 'menhir' ? 0.004 : 0.0025);
@@ -648,6 +746,7 @@ export class RunScene extends Phaser.Scene {
     this.spawnBurst(entity.x, entity.y, 42, 0x8cfffb);
     this.spawnBoostTunnel(entity.x, entity.y);
     soundSystem.overdrive();
+    this.pulseHaptics(150, 0.36, 0.82);
 
     const recovery = this.createRecoveryPlatform(snap.x + 420);
     this.recoveryPlatforms = [recovery];
@@ -801,6 +900,7 @@ export class RunScene extends Phaser.Scene {
     this.stats.bonusBones += rewardBones;
     this.titan.awardRunReward(18, 260 + threshold * 8);
     soundSystem.overdrive();
+    this.pulseHaptics(95, 0.2, 0.55);
     this.spawnBurst(x, y, 30, 0xffd36a);
     this.cameras.main.shake(90, 0.003);
     this.game.events.emit(GameEvents.Message, {
@@ -813,6 +913,25 @@ export class RunScene extends Phaser.Scene {
     const snap = this.titan.getSnapshot();
     this.stats.distance = this.titan.getDistanceMeters();
     this.stats.maxSpeed = Math.max(this.stats.maxSpeed, Math.abs(snap.vx));
+  }
+
+  private handleBiomeTransitions(): void {
+    if (this.phase !== 'surface' && this.phase !== 'recovering') {
+      return;
+    }
+
+    const index = this.getBiomeIndex(this.titan.getSnapshot().x);
+    if (index === this.currentBiomeIndex) {
+      return;
+    }
+
+    this.currentBiomeIndex = index;
+    const biome = this.getSurfaceBiome();
+    this.showPhaseBanner(biome.title, biome.hint, biome.color);
+    this.game.events.emit(GameEvents.Message, {
+      title: biome.title,
+      body: `Nouveau rythme de biome : ${biome.hint}.`,
+    });
   }
 
   private handleMilestones(): void {
@@ -841,6 +960,7 @@ export class RunScene extends Phaser.Scene {
 
     this.titan.awardRunReward(milestone.rocketPercent, milestone.speedBoost);
     soundSystem.milestone();
+    this.pulseHaptics(70, 0.16, 0.42);
     this.spawnBurst(snap.x, snap.y + snap.h * 0.45, 28, milestone.color);
     this.spawnBurst(this.getMilestoneWorldX(milestone), Math.max(80, snap.y), 20, milestone.color);
     this.cameras.main.flash(180, 255, 255, 255, false);
@@ -868,9 +988,9 @@ export class RunScene extends Phaser.Scene {
     });
   }
 
-  private showPhaseBanner(title: string, body: string): void {
+  private showPhaseBanner(title: string, body: string, tint = this.paused ? 0xffd36a : 0x8cfffb): void {
     this.milestoneBanner.setText(`${title}\n${body}`);
-    this.milestoneBanner.setTint(0x8cfffb);
+    this.milestoneBanner.setTint(tint);
     this.milestoneBanner.setAlpha(0);
     this.milestoneBanner.setScale(0.92);
     this.tweens.killTweensOf(this.milestoneBanner);
@@ -1378,6 +1498,10 @@ export class RunScene extends Phaser.Scene {
     return Math.floor(Math.max(0, x) / 2200) % 4;
   }
 
+  private getSurfaceBiome(): SurfaceBiome {
+    return SURFACE_BIOMES[this.currentBiomeIndex] || SURFACE_BIOMES[0];
+  }
+
   private syncEntitySprites(time: number): void {
     const activeIds = new Set<number>();
     for (const entity of this.getActiveEntities()) {
@@ -1422,6 +1546,12 @@ export class RunScene extends Phaser.Scene {
   }
 
   private updateHudText(): void {
+    if (this.paused) {
+      const label = this.phase === 'surface' || this.phase === 'recovering' ? this.getSurfaceBiome().title : this.phase.toUpperCase();
+      this.hudText.setText(`${this.stats.distance.toFixed(1)} m\nPAUSE\n${label}`);
+      return;
+    }
+
     if (this.phase === 'aerial') {
       this.hudText.setText(`${this.stats.distance.toFixed(1)} m\nVOIE AERIENNE\nroute espace`);
       return;
@@ -1446,7 +1576,8 @@ export class RunScene extends Phaser.Scene {
 
     const nextDistance = Math.ceil(this.getNextGoalDistance());
     const nextLine = nextDistance > 0 ? `${this.getNextGoalLabel()} ${nextDistance}m` : 'Signal final';
-    this.hudText.setText(`${this.stats.distance.toFixed(1)} m\ncombo x${this.stats.combo}\n${nextLine}`);
+    const biome = this.getSurfaceBiome();
+    this.hudText.setText(`${this.stats.distance.toFixed(1)} m\n${biome.title} - combo x${this.stats.combo}\n${nextLine}`);
   }
 
   private emitHud(): void {
@@ -1550,6 +1681,9 @@ export class RunScene extends Phaser.Scene {
   private handleLandingImpact(snap: PlayerSnapshot, impactSpeed: number, forceCrash = false): void {
     const power = forceCrash ? 1 : clamp((impactSpeed - 420) / 760, 0, 1);
     soundSystem.land(power);
+    if (power > 0.42 || forceCrash) {
+      this.pulseHaptics(forceCrash ? 160 : 88, forceCrash ? 0.55 : 0.26, forceCrash ? 0.72 : 0.48);
+    }
 
     if (power > 0.18 || forceCrash) {
       this.spawnLandingCrash(snap.x, snap.y + snap.h, power);

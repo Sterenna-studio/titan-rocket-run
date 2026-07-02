@@ -1,4 +1,4 @@
-export type ControlAction = 'left' | 'right' | 'jump' | 'rocket' | 'restart';
+export type ControlAction = 'left' | 'right' | 'jump' | 'rocket' | 'pause' | 'restart';
 
 export interface ControlBinding {
   code: string;
@@ -24,10 +24,14 @@ const DEFAULT_BINDINGS: ControlBindings = {
     { code: 'ShiftLeft', label: 'Shift' },
     { code: 'ShiftRight', label: 'Shift' },
   ],
+  pause: [
+    { code: 'KeyP', label: 'P' },
+    { code: 'Escape', label: 'Esc' },
+  ],
   restart: [{ code: 'KeyR', label: 'R' }],
 };
 
-const ACTIONS: ControlAction[] = ['left', 'right', 'jump', 'rocket', 'restart'];
+const ACTIONS: ControlAction[] = ['left', 'right', 'jump', 'rocket', 'pause', 'restart'];
 
 function cloneBindings(bindings: ControlBindings): ControlBindings {
   return {
@@ -35,6 +39,7 @@ function cloneBindings(bindings: ControlBindings): ControlBindings {
     right: [...bindings.right],
     jump: [...bindings.jump],
     rocket: [...bindings.rocket],
+    pause: [...bindings.pause],
     restart: [...bindings.restart],
   };
 }
@@ -42,6 +47,9 @@ function cloneBindings(bindings: ControlBindings): ControlBindings {
 function normalizeCodeLabel(code: string, fallback: string): string {
   if (code === 'Space') {
     return 'Espace';
+  }
+  if (code === 'Escape') {
+    return 'Esc';
   }
   if (code.startsWith('Key')) {
     return code.slice(3).toUpperCase();
@@ -73,6 +81,9 @@ class ControlSettings {
 
   setPrimary(action: ControlAction, code: string, key: string): ControlBindings {
     const label = normalizeCodeLabel(code, key);
+    for (const candidate of ACTIONS) {
+      this.bindings[candidate] = this.bindings[candidate].filter((binding) => binding.code !== code);
+    }
     const extras = DEFAULT_BINDINGS[action].filter((binding) => binding.code !== code);
     this.bindings[action] = [{ code, label }, ...extras].slice(0, 3);
     this.save();

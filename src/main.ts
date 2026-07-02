@@ -303,7 +303,7 @@ function renderControlBindings(): void {
 }
 
 function getControlAction(value: string | undefined): ControlAction | undefined {
-  if (value === 'left' || value === 'right' || value === 'jump' || value === 'rocket' || value === 'restart') {
+  if (value === 'left' || value === 'right' || value === 'jump' || value === 'rocket' || value === 'pause' || value === 'restart') {
     return value;
   }
 
@@ -316,6 +316,7 @@ function getControlActionLabel(action: ControlAction): string {
     right: 'Droite',
     jump: 'Saut',
     rocket: 'Rocket',
+    pause: 'Pause',
     restart: 'Retry',
   }[action];
 }
@@ -428,6 +429,7 @@ function bindTouchControls(): void {
     d: 'd',
     space: 'space',
     shift: 'shift',
+    pause: 'pause',
     r: 'r',
   };
 
