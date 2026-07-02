@@ -6,6 +6,15 @@ import type { RunSummary } from '../types/game';
 
 export class ResultScene extends Phaser.Scene {
   private summary?: RunSummary;
+  private distanceLine?: Phaser.GameObjects.Text;
+  private bonesLine?: Phaser.GameObjects.Text;
+  private signalLine?: Phaser.GameObjects.Text;
+  private comboLine?: Phaser.GameObjects.Text;
+  private rewardLine?: Phaser.GameObjects.Text;
+  private recordLine?: Phaser.GameObjects.Text;
+  private replayLine?: Phaser.GameObjects.Text;
+  private progressStart = 0;
+  private readonly progressDuration = 1500;
 
   private startRun = (): void => {
     this.scene.start('RunScene', { seed: this.makeSeed(), launchPower: 0.42 });
@@ -37,16 +46,9 @@ export class ResultScene extends Phaser.Scene {
     scaleTitanSprite(this, titan);
     titan.play(titanAnimKey('knockout'));
 
-    const distance = this.summary ? `${this.summary.distance.toFixed(1)} m` : '0 m';
-    const title = 'Run terminee';
-    this.add
-      .text(GAME_WIDTH / 2, GROUND_Y - 88, `${title} - ${distance}`, {
-        color: COLORS.text,
-        fontFamily: 'system-ui, sans-serif',
-        fontSize: '24px',
-        fontStyle: '900',
-      })
-      .setOrigin(0.5);
+    this.createResultPopup();
+    this.progressStart = this.time.now;
+    this.renderProgress(0);
 
     this.game.events.on(GameEvents.StartRun, this.startRun);
     this.input.keyboard?.on('keydown', this.handleKeyDown, this);
@@ -54,6 +56,125 @@ export class ResultScene extends Phaser.Scene {
       this.game.events.off(GameEvents.StartRun, this.startRun);
       this.input.keyboard?.off('keydown', this.handleKeyDown, this);
     });
+  }
+
+  update(): void {
+    const progress = Math.min(1, (this.time.now - this.progressStart) / this.progressDuration);
+    this.renderProgress(1 - Math.pow(1 - progress, 3));
+  }
+
+  private createResultPopup(): void {
+    const popup = this.add.container(GAME_WIDTH / 2, GROUND_Y - 310).setDepth(30).setAlpha(0);
+    const card = this.add.graphics();
+    card.fillStyle(0x061009, 0.94);
+    card.fillRoundedRect(-390, -196, 780, 360, 26);
+    card.fillStyle(0x62ff52, 0.08);
+    card.fillRoundedRect(-372, -178, 744, 324, 20);
+    card.lineStyle(4, COLORS.green, 0.62);
+    card.strokeRoundedRect(-390, -196, 780, 360, 26);
+    card.fillStyle(0x061009, 0.94);
+    card.fillTriangle(-38, 164, 38, 164, 0, 216);
+    card.lineStyle(3, COLORS.green, 0.42);
+    card.lineBetween(-38, 164, 0, 216);
+    card.lineBetween(38, 164, 0, 216);
+    popup.add(card);
+
+    const title = this.summary?.isRecord ? 'Nouveau record !' : 'Run terminee';
+    popup.add(
+      this.add
+        .text(0, -148, title, {
+          align: 'center',
+          color: this.summary?.isRecord ? '#ffd36a' : COLORS.greenText,
+          fontFamily: 'system-ui, sans-serif',
+          fontSize: '38px',
+          fontStyle: '900',
+        })
+        .setOrigin(0.5),
+    );
+
+    const badge = this.summary?.badge || (this.summary?.storyEvents ? 'Route decouverte' : 'Titan revient au garage');
+    popup.add(
+      this.add
+        .text(0, -106, badge, {
+          align: 'center',
+          color: COLORS.muted,
+          fontFamily: 'system-ui, sans-serif',
+          fontSize: '22px',
+          fontStyle: '800',
+        })
+        .setOrigin(0.5),
+    );
+
+    this.distanceLine = this.createLine(popup, -118, -44);
+    this.bonesLine = this.createLine(popup, 118, -44);
+    this.signalLine = this.createLine(popup, -118, 22);
+    this.comboLine = this.createLine(popup, 118, 22);
+    this.rewardLine = this.createLine(popup, -118, 88, '#62ff52');
+    this.recordLine = this.createLine(popup, 118, 88, '#ffd36a');
+    this.replayLine = this.add
+      .text(0, 136, 'Comptage...', {
+        color: COLORS.text,
+        fontFamily: 'system-ui, sans-serif',
+        fontSize: '18px',
+        fontStyle: '900',
+      })
+      .setOrigin(0.5);
+    popup.add(this.replayLine);
+
+    this.tweens.add({
+      targets: popup,
+      alpha: 1,
+      y: popup.y - 24,
+      duration: 360,
+      ease: 'Cubic.Out',
+    });
+  }
+
+  private createLine(container: Phaser.GameObjects.Container, x: number, y: number, color = COLORS.text): Phaser.GameObjects.Text {
+    const line = this.add
+      .text(x, y, '', {
+        align: x < 0 ? 'left' : 'right',
+        color,
+        fontFamily: 'system-ui, sans-serif',
+        fontSize: '24px',
+        fontStyle: '900',
+      })
+      .setOrigin(x < 0 ? 0 : 1, 0.5);
+    container.add(line);
+    return line;
+  }
+
+  private renderProgress(progress: number): void {
+    const summary = this.getSummary();
+    this.distanceLine?.setText(`Distance\n${(summary.distance * progress).toFixed(1)} m`);
+    this.bonesLine?.setText(`Os ramasses\n${Math.round(summary.pickups * progress)} (+${Math.round(summary.bonusBones * progress)})`);
+    this.signalLine?.setText(`Bonus lieux\n${Math.round(summary.storyEvents * progress)} signal(s)`);
+    this.comboLine?.setText(`Combo max\nx${Math.round(summary.bestCombo * progress)}`);
+    this.rewardLine?.setText(`Total gagne\n+${Math.round(summary.reward * progress)} os`);
+    this.recordLine?.setText(summary.isRecord ? 'Record\nvalide' : `Record\n${summary.badge || 'a battre'}`);
+    this.replayLine?.setText(progress >= 1 ? 'Enter / Espace / R pour rejouer' : 'Comptage...');
+  }
+
+  private getSummary(): RunSummary {
+    return this.summary ?? {
+      distance: 0,
+      maxSpeed: 0,
+      jumps: 0,
+      landed: 0,
+      pickups: 0,
+      bonusBones: 0,
+      overdrives: 0,
+      combo: 0,
+      bestCombo: 0,
+      storyEvents: 0,
+      bestMilestone: '',
+      milestonesReached: [],
+      reward: 0,
+      isRecord: false,
+      badge: '',
+      seed: '',
+      finishReason: 'fall',
+    };
   }
 
   private handleKeyDown(event: KeyboardEvent): void {
