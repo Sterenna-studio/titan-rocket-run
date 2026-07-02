@@ -1,8 +1,8 @@
 export type UpgradeId = 'shoes' | 'ramp' | 'bounce' | 'rocket' | 'missile' | 'cape' | 'start' | 'suit';
 
-export type PlatformKind = 'start' | 'normal' | 'boost' | 'ramp' | 'path';
+export type PlatformKind = 'start' | 'normal' | 'boost' | 'ramp' | 'path' | 'underground' | 'recovery';
 
-export type EntityKind = 'bone';
+export type EntityKind = 'bone' | 'undergroundBoost';
 
 export interface UpgradeDefinition {
   name: string;

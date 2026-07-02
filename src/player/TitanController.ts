@@ -159,6 +159,30 @@ export class TitanController {
     this.syncSprite();
   }
 
+  placeOnPlatform(
+    x: number,
+    platformY: number,
+    velocityX: number,
+    rocketPercent = 60,
+    invuln = 0.7,
+    speedBonus = 0,
+  ): void {
+    this.state.x = x;
+    this.state.y = platformY - this.state.h;
+    this.state.vx = Math.max(velocityX, this.stats.startVelocity * 0.72);
+    this.state.vy = 0;
+    this.state.grounded = true;
+    this.state.coyote = 0.12;
+    this.state.jumpsLeft = Math.max(0, this.stats.maxJumps - 1);
+    this.state.rocketFuel = Math.max(this.state.rocketFuel, this.stats.rocketMax * clamp(rocketPercent, 0, 100) / 100);
+    this.state.hurt = 0;
+    this.state.invuln = Math.max(this.state.invuln, invuln);
+    this.speedBonus = Math.max(this.speedBonus, speedBonus);
+    this.rotation = 0;
+    this.play('run', true);
+    this.syncSprite();
+  }
+
   knockOut(): void {
     this.play('knockout', true);
   }

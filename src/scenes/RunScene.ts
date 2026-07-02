@@ -9,6 +9,7 @@ import {
   SKY_Y,
   SPACE_Y,
   START_X,
+  UNDERGROUND_Y,
   WORLD_SCALE,
   clamp,
 } from '../game/constants';
@@ -18,7 +19,17 @@ import { RUN_MILESTONES, getNextMilestone } from '../systems/RunMilestones';
 import { saveSystem } from '../systems/SaveSystem';
 import { soundSystem } from '../systems/SoundSystem';
 import { upgradeSystem } from '../systems/UpgradeSystem';
-import type { HudState, InputState, PlayerSnapshot, RunMilestone, RunStats, RunSummary, VirtualInput } from '../types/game';
+import type {
+  HudState,
+  InputState,
+  PlatformData,
+  PlayerSnapshot,
+  RunMilestone,
+  RunStats,
+  RunSummary,
+  VirtualInput,
+  WorldEntity,
+} from '../types/game';
 import { ChunkManager } from '../world/ChunkManager';
 
 interface Particle {
@@ -46,6 +57,11 @@ interface ImpactMark {
 }
 
 type KeyMap = Record<'a' | 'q' | 'd' | 'left' | 'right' | 'space' | 'shift', Phaser.Input.Keyboard.Key>;
+type RunPhase = 'surface' | 'underground' | 'recovering' | 'gameOver';
+
+const SCRIPTED_ID_START = 100000;
+const SURFACE_FALL_BOTTOM_Y = CRASH_GROUND_Y + 24;
+const RECOVERY_DURATION = 1.15;
 
 export class RunScene extends Phaser.Scene {
   private seed = '';
@@ -76,6 +92,12 @@ export class RunScene extends Phaser.Scene {
   private debugVisible = false;
   private hitboxesVisible = false;
   private ended = false;
+  private phase: RunPhase = 'surface';
+  private recoveryTimer = 0;
+  private nextScriptedId = SCRIPTED_ID_START;
+  private undergroundPlatforms: PlatformData[] = [];
+  private recoveryPlatforms: PlatformData[] = [];
+  private undergroundEntities: WorldEntity[] = [];
 
   constructor() {
     super('RunScene');
@@ -93,6 +115,12 @@ export class RunScene extends Phaser.Scene {
     this.rocketVisualCooldown = 0;
     this.nextOverdriveCombo = 6;
     this.ended = false;
+    this.phase = 'surface';
+    this.recoveryTimer = 0;
+    this.nextScriptedId = SCRIPTED_ID_START;
+    this.undergroundPlatforms = [];
+    this.recoveryPlatforms = [];
+    this.undergroundEntities = [];
     this.particles = [];
     this.impactMarks = [];
     this.entitySprites.clear();
@@ -174,6 +202,7 @@ export class RunScene extends Phaser.Scene {
     this.jumpBuffer = Math.max(0, this.jumpBuffer - dt);
     this.boostSoundCooldown = Math.max(0, this.boostSoundCooldown - dt);
     this.rocketVisualCooldown = Math.max(0, this.rocketVisualCooldown - dt);
+    this.updateRecoveryTimer(dt);
     this.chunk.ensure(this.cameras.main.scrollX, GAME_WIDTH);
 
     const input = this.getInputState();
@@ -186,7 +215,7 @@ export class RunScene extends Phaser.Scene {
       this.spawnBurst(snap.x, snap.y + snap.h * 0.68, 14, 0x62ff52);
     }
 
-    const result = this.titan.update(dt, input, this.chunk.platforms);
+    const result = this.titan.update(dt, input, this.getActivePlatforms());
     let snap = this.titan.getSnapshot();
     if (result.landed) {
       this.stats.landed += 1;
@@ -220,10 +249,7 @@ export class RunScene extends Phaser.Scene {
     this.updateHudText();
     this.updateDebug();
     this.emitHud();
-
-    if (this.titan.isDead()) {
-      this.finishRun();
-    }
+    this.updateRunPhase();
   }
 
   private bindInput(): void {
@@ -306,20 +332,34 @@ export class RunScene extends Phaser.Scene {
     };
   }
 
+  private getActivePlatforms(): PlatformData[] {
+    return [...this.chunk.platforms, ...this.undergroundPlatforms, ...this.recoveryPlatforms];
+  }
+
+  private getActiveEntities(): WorldEntity[] {
+    return [...this.chunk.entities, ...this.undergroundEntities];
+  }
+
   private handleEntities(): void {
     const time = this.time.now / 1000;
     const player = this.titan.getCollisionCircle();
 
-    for (const bone of this.collect.findCollected(player, this.chunk.entities, time)) {
-      this.chunk.markEntityHit(bone.id);
-      this.addCombo(1, bone.x, bone.y);
+    for (const entity of this.collect.findCollected(player, this.getActiveEntities(), time)) {
+      entity.hit = true;
+
+      if (entity.type === 'undergroundBoost') {
+        this.collectUndergroundBoost(entity);
+        continue;
+      }
+
+      this.addCombo(1, entity.x, entity.y);
       const comboBonus = Math.floor(this.stats.combo / 4);
-      const earnedBones = bone.value + comboBonus;
+      const earnedBones = entity.value + comboBonus;
       this.titan.collectBone(earnedBones);
       this.stats.pickups += 1;
       this.stats.bonusBones += earnedBones;
       soundSystem.collect();
-      this.spawnBurst(bone.x, bone.y, 14 + comboBonus * 2, comboBonus > 0 ? 0xffd36a : 0x62ff52);
+      this.spawnBurst(entity.x, entity.y, 14 + comboBonus * 2, comboBonus > 0 ? 0xffd36a : 0x62ff52);
       if (comboBonus > 0 && this.stats.combo % 4 === 0) {
         this.game.events.emit(GameEvents.Message, {
           title: `Combo x${this.stats.combo}`,
@@ -328,6 +368,157 @@ export class RunScene extends Phaser.Scene {
       }
     }
 
+  }
+
+  private updateRecoveryTimer(dt: number): void {
+    if (this.phase !== 'recovering') {
+      return;
+    }
+
+    this.recoveryTimer = Math.max(0, this.recoveryTimer - dt);
+    if (this.recoveryTimer <= 0) {
+      this.phase = 'surface';
+    }
+  }
+
+  private updateRunPhase(): void {
+    const snap = this.titan.getSnapshot();
+
+    if (this.phase === 'surface' && snap.y + snap.h > SURFACE_FALL_BOTTOM_Y) {
+      this.enterUnderground(snap);
+      return;
+    }
+
+    if (this.phase === 'underground' && this.titan.isDead()) {
+      this.finishRun();
+    }
+  }
+
+  private enterUnderground(snap: PlayerSnapshot): void {
+    this.phase = 'underground';
+    this.recoveryTimer = 0;
+    const startX = Math.max(START_X + 420, snap.x - 120);
+    this.undergroundPlatforms = this.createUndergroundRoute(startX);
+    this.undergroundEntities = this.createUndergroundCollectibles(this.undergroundPlatforms);
+    this.recoveryPlatforms = [];
+    const entry = this.undergroundPlatforms[0];
+    const entryX = clamp(snap.x + 120, entry.x + 96, entry.x + entry.w - 96);
+
+    this.titan.placeOnPlatform(entryX, entry.y, Math.max(snap.vx * 0.72, this.playerStats.startVelocity * 0.88), 62, 1.1);
+    const placed = this.titan.getSnapshot();
+    this.spawnBurst(placed.x, placed.y + placed.h * 0.54, 30, 0x8cfffb);
+    this.spawnUndergroundTransition(placed.x, placed.y + placed.h);
+    soundSystem.land(0.82);
+    this.cameras.main.shake(190, 0.006);
+    this.cameras.main.flash(220, 36, 12, 54, false);
+    this.game.events.emit(GameEvents.Message, {
+      title: 'Souterrain de rattrapage',
+      body: 'Seconde chance : reste sur les tunnels et attrape le boost cyan pour remonter sur la piste haute.',
+    });
+    this.showPhaseBanner('Souterrain de rattrapage', 'Boost cyan = remontee surface');
+  }
+
+  private collectUndergroundBoost(entity: WorldEntity): void {
+    if (this.phase !== 'underground') {
+      return;
+    }
+
+    const snap = this.titan.getSnapshot();
+    this.stats.pickups += 1;
+    this.stats.bonusBones += 18;
+    this.addCombo(2, entity.x, entity.y);
+    this.spawnBurst(entity.x, entity.y, 42, 0x8cfffb);
+    this.spawnBoostTunnel(entity.x, entity.y);
+    soundSystem.overdrive();
+
+    const recovery = this.createRecoveryPlatform(snap.x + 420);
+    this.recoveryPlatforms = [recovery];
+    this.phase = 'recovering';
+    this.recoveryTimer = RECOVERY_DURATION;
+    this.undergroundPlatforms = this.undergroundPlatforms.filter((platform) => platform.x + platform.w > snap.x - 260);
+    this.undergroundEntities = [];
+    this.titan.placeOnPlatform(recovery.x + 140, recovery.y, Math.max(snap.vx + 360, this.playerStats.topSpeed + 180), 100, 1.25, 520);
+    const placed = this.titan.getSnapshot();
+
+    this.spawnBurst(placed.x, placed.y + placed.h, 34, 0xffd36a);
+    this.cameras.main.shake(160, 0.004);
+    this.cameras.main.flash(180, 140, 255, 251, false);
+    this.game.events.emit(GameEvents.Message, {
+      title: 'Remontee surface !',
+      body: '+18 os, rocket pleine et vitesse bonus. La chute est sauvee, reprends la piste haute.',
+    });
+    this.showPhaseBanner('Remontee surface', 'Rocket pleine + vitesse bonus');
+  }
+
+  private createUndergroundRoute(startX: number): PlatformData[] {
+    const widths = [760, 420, 360, 455, 390, 520];
+    const gaps = [120, 142, 132, 156, 126];
+    const platforms: PlatformData[] = [];
+    let x = startX;
+
+    for (let i = 0; i < widths.length; i += 1) {
+      const y = clamp(UNDERGROUND_Y - 18 - (i % 3) * 34 + Math.sin((startX + i * 91) * 0.01) * 18, GROUND_Y + 54, UNDERGROUND_Y + 10);
+      platforms.push({
+        id: this.nextScriptedId,
+        x,
+        y,
+        w: widths[i],
+        h: i === 0 ? 46 : 34 + (i % 2) * 8,
+        kind: 'underground',
+      });
+      this.nextScriptedId += 1;
+      x += widths[i] + (gaps[i] ?? 0);
+    }
+
+    return platforms;
+  }
+
+  private createUndergroundCollectibles(platforms: PlatformData[]): WorldEntity[] {
+    const entities: WorldEntity[] = [];
+    for (let i = 1; i < platforms.length - 1; i += 1) {
+      const platform = platforms[i];
+      entities.push({
+        id: this.nextScriptedId,
+        type: 'bone',
+        x: platform.x + platform.w * 0.36,
+        y: platform.y - 58,
+        r: 18,
+        value: 4,
+        hit: false,
+        grazed: false,
+        bob: i * 0.8,
+      });
+      this.nextScriptedId += 1;
+    }
+
+    const boostPlatform = platforms[platforms.length - 1];
+    entities.push({
+      id: this.nextScriptedId,
+      type: 'undergroundBoost',
+      x: boostPlatform.x + boostPlatform.w * 0.62,
+      y: boostPlatform.y - 86,
+      r: 30,
+      value: 0,
+      hit: false,
+      grazed: false,
+      bob: 4.8,
+    });
+    this.nextScriptedId += 1;
+
+    return entities;
+  }
+
+  private createRecoveryPlatform(x: number): PlatformData {
+    const platform: PlatformData = {
+      id: this.nextScriptedId,
+      x,
+      y: GROUND_Y - 118,
+      w: 980,
+      h: 34,
+      kind: 'recovery',
+    };
+    this.nextScriptedId += 1;
+    return platform;
   }
 
   private addCombo(amount: number, x: number, y: number): void {
@@ -363,6 +554,10 @@ export class RunScene extends Phaser.Scene {
   }
 
   private handleMilestones(): void {
+    if (this.phase === 'underground') {
+      return;
+    }
+
     for (const milestone of RUN_MILESTONES) {
       if (this.reachedMilestones.has(milestone.id) || this.stats.distance < milestone.distance) {
         continue;
@@ -408,6 +603,23 @@ export class RunScene extends Phaser.Scene {
       ease: 'Back.Out',
       yoyo: true,
       hold: 1300,
+    });
+  }
+
+  private showPhaseBanner(title: string, body: string): void {
+    this.milestoneBanner.setText(`${title}\n${body}`);
+    this.milestoneBanner.setTint(0x8cfffb);
+    this.milestoneBanner.setAlpha(0);
+    this.milestoneBanner.setScale(0.92);
+    this.tweens.killTweensOf(this.milestoneBanner);
+    this.tweens.add({
+      targets: this.milestoneBanner,
+      alpha: 1,
+      scale: 1,
+      duration: 150,
+      ease: 'Back.Out',
+      yoyo: true,
+      hold: 1500,
     });
   }
 
@@ -582,9 +794,13 @@ export class RunScene extends Phaser.Scene {
   private drawPlatforms(): void {
     this.drawGround();
     this.platformGraphics.clear();
-    for (const platform of this.chunk.platforms) {
+    for (const platform of this.getActivePlatforms()) {
       const color =
-        platform.kind === 'boost'
+        platform.kind === 'underground'
+          ? 0x101a24
+          : platform.kind === 'recovery'
+            ? 0x14351e
+            : platform.kind === 'boost'
           ? COLORS.boost
           : platform.kind === 'path'
             ? 0x14351e
@@ -594,7 +810,11 @@ export class RunScene extends Phaser.Scene {
                 ? 0x26321b
                 : this.getBiomePlatformColor(platform.x);
       const accent =
-        platform.kind === 'boost'
+        platform.kind === 'underground'
+          ? 0x8cfffb
+          : platform.kind === 'recovery'
+            ? 0xffd36a
+            : platform.kind === 'boost'
           ? COLORS.green
           : platform.kind === 'path'
             ? 0x8cfffb
@@ -624,6 +844,16 @@ export class RunScene extends Phaser.Scene {
       if (platform.kind === 'start') {
         this.platformGraphics.fillStyle(0xffd36a, 0.16);
         this.platformGraphics.fillRoundedRect(platform.x + 24, platform.y + 10, platform.w - 48, 8, 4);
+      } else if (platform.kind === 'underground') {
+        this.platformGraphics.lineStyle(2, 0xffd36a, 0.18);
+        this.platformGraphics.lineBetween(platform.x + 18, platform.y + platform.h - 8, platform.x + platform.w - 18, platform.y + platform.h - 8);
+        for (let x = platform.x + 38; x < platform.x + platform.w - 32; x += 84) {
+          this.platformGraphics.lineStyle(2, 0x8cfffb, 0.28);
+          this.platformGraphics.lineBetween(x, platform.y + 5, x + 34, platform.y + 5);
+        }
+      } else if (platform.kind === 'recovery') {
+        this.platformGraphics.fillStyle(0x8cfffb, 0.16);
+        this.platformGraphics.fillRoundedRect(platform.x + 22, platform.y + 8, platform.w - 44, 7, 4);
       } else if (platform.kind === 'path') {
         this.platformGraphics.lineStyle(2, 0x071009, 0.42);
         this.platformGraphics.lineBetween(platform.x + 18, platform.y + platform.h * 0.5, platform.x + platform.w - 18, platform.y + platform.h * 0.5);
@@ -634,7 +864,9 @@ export class RunScene extends Phaser.Scene {
       }
     }
     this.drawImpactMarks();
-    this.drawMilestoneBeacons();
+    if (this.phase !== 'underground') {
+      this.drawMilestoneBeacons();
+    }
   }
 
   private drawGround(): void {
@@ -648,6 +880,7 @@ export class RunScene extends Phaser.Scene {
     this.groundGraphics.clear();
     this.groundGraphics.fillStyle(0x071009, 1);
     this.groundGraphics.fillRect(viewX, top, width, GAME_HEIGHT - top + 80);
+    this.drawUndergroundBackdrop(viewX, width, startX, endX);
     this.groundGraphics.fillStyle(0x111707, 0.94);
     for (let x = startX; x < endX; x += 96) {
       const crest = top + Math.sin(x * 0.013) * 7 + Math.sin(x * 0.031) * 5;
@@ -659,6 +892,34 @@ export class RunScene extends Phaser.Scene {
     for (let x = startX; x < endX; x += 132) {
       const y = top + 38 + Math.sin(x * 0.021) * 10;
       this.groundGraphics.lineBetween(x, y, x + 44, y + 22);
+    }
+  }
+
+  private drawUndergroundBackdrop(viewX: number, width: number, startX: number, endX: number): void {
+    const activeTunnel =
+      this.phase === 'underground' ||
+      this.phase === 'recovering' ||
+      this.undergroundPlatforms.some((platform) => platform.x + platform.w > viewX && platform.x < viewX + width);
+
+    if (!activeTunnel) {
+      return;
+    }
+
+    const ceilingY = GROUND_Y + 50;
+    this.groundGraphics.fillStyle(0x050712, 0.88);
+    this.groundGraphics.fillRect(viewX, ceilingY, width, GAME_HEIGHT - ceilingY + 80);
+    this.groundGraphics.lineStyle(4, 0x8cfffb, 0.24);
+    this.groundGraphics.lineBetween(viewX, ceilingY + 12, viewX + width, ceilingY + 12);
+    this.groundGraphics.lineStyle(2, 0xffd36a, 0.12);
+    this.groundGraphics.lineBetween(viewX, UNDERGROUND_Y + 44, viewX + width, UNDERGROUND_Y + 44);
+
+    for (let x = startX; x < endX; x += 120) {
+      const rockY = ceilingY + 18 + Math.sin(x * 0.017) * 16;
+      this.groundGraphics.fillStyle(0x111827, 0.82);
+      this.groundGraphics.fillTriangle(x, ceilingY, x + 60, rockY, x + 120, ceilingY);
+      this.groundGraphics.lineStyle(2, 0x8cfffb, 0.08);
+      this.groundGraphics.lineBetween(x + 14, UNDERGROUND_Y + 64, x + 72, UNDERGROUND_Y + 82);
+      this.groundGraphics.lineBetween(x + 72, UNDERGROUND_Y + 82, x + 112, UNDERGROUND_Y + 66);
     }
   }
 
@@ -699,7 +960,7 @@ export class RunScene extends Phaser.Scene {
 
   private syncEntitySprites(time: number): void {
     const activeIds = new Set<number>();
-    for (const entity of this.chunk.entities) {
+    for (const entity of this.getActiveEntities()) {
       if (entity.hit) {
         continue;
       }
@@ -711,7 +972,8 @@ export class RunScene extends Phaser.Scene {
         this.entitySprites.set(entity.id, sprite);
       }
       sprite.setPosition(entity.x, entity.y + Math.sin(time * 3 + entity.bob) * 6);
-      sprite.setAlpha(1);
+      sprite.setAlpha(entity.type === 'undergroundBoost' ? 0.92 + Math.sin(time * 7) * 0.08 : 1);
+      sprite.setRotation(entity.type === 'undergroundBoost' ? Math.sin(time * 2.5) * 0.08 : 0);
       sprite.clearTint();
     }
 
@@ -724,6 +986,18 @@ export class RunScene extends Phaser.Scene {
   }
 
   private updateHudText(): void {
+    if (this.phase === 'underground') {
+      const boost = this.getUndergroundBoost();
+      const boostDistance = boost ? Math.max(0, Math.ceil((boost.x - this.titan.getSnapshot().x) * WORLD_SCALE)) : 0;
+      this.hudText.setText(`${this.stats.distance.toFixed(1)} m\nSOUTERRAIN\nboost cyan ${boostDistance}m`);
+      return;
+    }
+
+    if (this.phase === 'recovering') {
+      this.hudText.setText(`${this.stats.distance.toFixed(1)} m\nREMONTEE\nrocket pleine`);
+      return;
+    }
+
     const nextDistance = Math.ceil(this.getNextGoalDistance());
     const nextLine = nextDistance > 0 ? `${this.getNextGoalLabel()} ${nextDistance}m` : 'Signal final';
     this.hudText.setText(`${this.stats.distance.toFixed(1)} m\ncombo x${this.stats.combo}\n${nextLine}`);
@@ -731,6 +1005,8 @@ export class RunScene extends Phaser.Scene {
 
   private emitHud(): void {
     const snap = this.titan.getSnapshot();
+    const nextGoalLabel = this.phase === 'underground' ? 'Boost cyan' : this.phase === 'recovering' ? 'Remontee surface' : this.getNextGoalLabel();
+    const nextGoalDistance = this.phase === 'underground' ? this.getUndergroundBoostDistance() : this.phase === 'recovering' ? 0 : this.getNextGoalDistance();
     const hud: HudState = {
       distance: this.stats.distance,
       combo: this.stats.combo,
@@ -738,11 +1014,24 @@ export class RunScene extends Phaser.Scene {
       jumpsLeft: snap.grounded ? this.playerStats.maxJumps : snap.jumpsLeft,
       maxJumps: this.playerStats.maxJumps,
       rocketPercent: clamp((snap.rocketFuel / this.playerStats.rocketMax) * 100, 0, 100),
-      nextGoalLabel: this.getNextGoalLabel(),
-      nextGoalDistance: this.getNextGoalDistance(),
+      nextGoalLabel,
+      nextGoalDistance,
       storyEvents: this.stats.storyEvents,
     };
     this.game.events.emit(GameEvents.HudUpdate, hud);
+  }
+
+  private getUndergroundBoost(): WorldEntity | undefined {
+    return this.undergroundEntities.find((entity) => entity.type === 'undergroundBoost' && !entity.hit);
+  }
+
+  private getUndergroundBoostDistance(): number {
+    const boost = this.getUndergroundBoost();
+    if (!boost) {
+      return 0;
+    }
+
+    return Math.max(0, (boost.x - this.titan.getSnapshot().x) * WORLD_SCALE);
   }
 
   private getNextGoalLabel(): string {
@@ -760,6 +1049,7 @@ export class RunScene extends Phaser.Scene {
       this.debugText.setText(
         [
           `seed: ${this.seed}`,
+          `phase: ${this.phase}`,
           `distance: ${this.stats.distance.toFixed(1)} m`,
           `vx/vy: ${snap.vx.toFixed(1)} / ${snap.vy.toFixed(1)}`,
           `grounded: ${snap.grounded}`,
@@ -767,8 +1057,8 @@ export class RunScene extends Phaser.Scene {
           `rocket: ${snap.rocketFuel.toFixed(1)} / ${this.playerStats.rocketMax}`,
           `bounce: ${this.playerStats.bouncePower.toFixed(0)}`,
           `story: ${this.stats.storyEvents}/${RUN_MILESTONES.length}`,
-          `platforms: ${this.chunk.platforms.length}`,
-          `entities: ${this.chunk.entities.length}`,
+          `platforms: ${this.getActivePlatforms().length}`,
+          `entities: ${this.getActiveEntities().length}`,
           `combo: ${this.stats.combo}`,
           `overdrives: ${this.stats.overdrives}`,
         ].join('\n'),
@@ -781,7 +1071,7 @@ export class RunScene extends Phaser.Scene {
     }
 
     this.hitboxGraphics.lineStyle(2, 0x62ff52, 0.9);
-    for (const platform of this.chunk.platforms) {
+    for (const platform of this.getActivePlatforms()) {
       this.hitboxGraphics.strokeRect(platform.x, platform.y, platform.w, platform.h);
     }
     const snap = this.titan.getSnapshot();
@@ -790,7 +1080,7 @@ export class RunScene extends Phaser.Scene {
     const circle = this.titan.getCollisionCircle();
     this.hitboxGraphics.lineStyle(2, 0xff5b46, 0.9);
     this.hitboxGraphics.strokeCircle(circle.x, circle.y, circle.r);
-    for (const entity of this.chunk.entities) {
+    for (const entity of this.getActiveEntities()) {
       if (!entity.hit) {
         this.hitboxGraphics.strokeCircle(entity.x, entity.y, entity.r);
       }
@@ -842,6 +1132,59 @@ export class RunScene extends Phaser.Scene {
       duration: 260,
       onComplete: () => ring.destroy(),
     });
+  }
+
+  private spawnUndergroundTransition(x: number, y: number): void {
+    const tunnelRing = this.add.ellipse(x, y - 34, 260, 78).setDepth(16).setStrokeStyle(6, 0x8cfffb, 0.62);
+    this.tweens.add({
+      targets: tunnelRing,
+      alpha: 0,
+      scaleX: 1.45,
+      scaleY: 0.58,
+      duration: 520,
+      onComplete: () => tunnelRing.destroy(),
+    });
+
+    for (let i = 0; i < 24; i += 1) {
+      this.createParticle(
+        x + Math.random() * 220 - 110,
+        y - 18 + Math.random() * 34,
+        -120 + Math.random() * 240,
+        -260 - Math.random() * 220,
+        Math.random() > 0.5 ? 0x8cfffb : 0x2b4464,
+        0.36 + Math.random() * 0.32,
+      );
+    }
+  }
+
+  private spawnBoostTunnel(x: number, y: number): void {
+    for (let i = 0; i < 5; i += 1) {
+      const ring = this.add.ellipse(x + i * 62, y, 96 + i * 42, 62 + i * 12).setDepth(16).setStrokeStyle(4, i % 2 === 0 ? 0x8cfffb : 0xffd36a, 0.46);
+      this.tweens.add({
+        targets: ring,
+        x: ring.x + 280 + i * 36,
+        alpha: 0,
+        scaleX: 1.8,
+        scaleY: 0.6,
+        duration: 360 + i * 42,
+        onComplete: () => ring.destroy(),
+      });
+    }
+
+    for (let i = 0; i < 18; i += 1) {
+      const line = this.add
+        .rectangle(x - 40 + Math.random() * 120, y + Math.random() * 120 - 60, 80 + Math.random() * 90, 4, 0x8cfffb, 0.38)
+        .setDepth(22)
+        .setRotation((Math.random() - 0.5) * 0.18);
+      this.tweens.add({
+        targets: line,
+        x: line.x + 380 + Math.random() * 180,
+        alpha: 0,
+        scaleX: 1.5,
+        duration: 240 + Math.random() * 160,
+        onComplete: () => line.destroy(),
+      });
+    }
   }
 
   private spawnLandingCrash(x: number, y: number, power: number): void {
@@ -1010,12 +1353,16 @@ export class RunScene extends Phaser.Scene {
     }
 
     this.ended = true;
+    const finishedUnderground = this.phase === 'underground';
+    this.phase = 'gameOver';
     const finishReason: RunSummary['finishReason'] = 'fall';
     this.titan.knockOut();
     soundSystem.finish();
     this.game.events.emit(GameEvents.Message, {
-      title: 'Chute dans le vide',
-      body: 'Saute plus tot ou garde un peu de rocket pour corriger la prochaine trajectoire.',
+      title: finishedUnderground ? 'Chute sous le souterrain' : 'Chute dans le vide',
+      body: finishedUnderground
+        ? 'La seconde chance est ratee : attrape le boost cyan avant le prochain trou.'
+        : 'Saute plus tot ou garde un peu de rocket pour corriger la prochaine trajectoire.',
     });
     const summary: RunSummary = saveSystem.recordRun(this.stats, this.seed, finishReason);
     this.game.events.emit(GameEvents.SaveChanged, saveSystem.getSnapshot());

@@ -11,6 +11,7 @@ export const SAVE_KEY = `titanRocketRunSaveV${SAVE_VERSION}`;
 export const START_X = 145;
 export const GROUND_Y = 1220;
 export const CRASH_GROUND_Y = GAME_HEIGHT - 84;
+export const UNDERGROUND_Y = GAME_HEIGHT - 116;
 export const WORLD_SCALE = 0.09;
 export const DEATH_Y = 1580;
 export const GRAVITY = 1900;
