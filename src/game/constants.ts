@@ -1,8 +1,9 @@
 import type { UpgradeDefinition, UpgradeId } from '../types/game';
+import { withAssetCacheBust } from './cacheBust';
 
 export const GAME_WIDTH = 2560;
 export const GAME_HEIGHT = 1440;
-export const MANIFEST_URL = 'assets/titan_manifest.json';
+export const MANIFEST_URL = withAssetCacheBust('assets/titan_manifest.json');
 export const SAVE_VERSION = 1;
 export const STARTER_BONES = 130;
 export const SAVE_KEY = `titanRocketRunSaveV${SAVE_VERSION}`;

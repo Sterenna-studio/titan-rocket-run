@@ -1,3 +1,5 @@
+import { withAssetCacheBust } from './game/cacheBust.ts';
+
 (() => {
   const $ = (id) => document.getElementById(id);
   const els = {
@@ -21,7 +23,7 @@
 
   async function init() {
     try {
-      const res = await fetch('assets/titan_manifest.json');
+      const res = await fetch(withAssetCacheBust('assets/titan_manifest.json'));
       manifest = await res.json();
       makeFrameList();
       makeFilters();
@@ -102,7 +104,7 @@
     const thumb = document.createElement('div');
     thumb.className = 'thumb';
     const img = document.createElement('img');
-    img.src = frame.src;
+    img.src = withAssetCacheBust(frame.src);
     img.alt = frame.name;
     img.loading = 'lazy';
     thumb.appendChild(img);
@@ -124,7 +126,7 @@
   function selectFrame(frame) {
     if (!frame) return;
     selected = frame;
-    els.previewImage.src = frame.src;
+    els.previewImage.src = withAssetCacheBust(frame.src);
     els.previewImage.alt = frame.name;
     els.previewMeta.replaceChildren(
       line(frame.name, true), line('Animation : ' + frame.label),

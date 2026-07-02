@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { withAssetCacheBust } from '../game/cacheBust';
 import { COLORS, GAME_HEIGHT, GAME_WIDTH, MANIFEST_URL } from '../game/constants';
 import { queueTitanFrames, registerTitanAnimations } from '../player/TitanAnimations';
 import type { TitanAnimationManifest } from '../types/game';
@@ -10,7 +11,7 @@ export class BootScene extends Phaser.Scene {
 
   preload(): void {
     this.load.json('titan-manifest', MANIFEST_URL);
-    this.load.image('titan-rocket-projectile', 'assets/effects/titan-rocket-projectile.png');
+    this.load.image('titan-rocket-projectile', withAssetCacheBust('assets/effects/titan-rocket-projectile.png'));
   }
 
   create(): void {

@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { withAssetCacheBust } from '../game/cacheBust';
 import { TITAN_DISPLAY_HEIGHT } from '../game/constants';
 import type { TitanAnimationManifest } from '../types/game';
 
@@ -21,7 +22,7 @@ export function queueTitanFrames(scene: Phaser.Scene, manifest: TitanAnimationMa
     data.frames.forEach((src, index) => {
       const key = titanFrameKey(animation, index);
       if (!scene.textures.exists(key)) {
-        scene.load.image(key, src);
+        scene.load.image(key, withAssetCacheBust(src));
         queued += 1;
       }
     });

@@ -4,6 +4,8 @@ import { fileURLToPath } from 'node:url';
 import { defineConfig, type Plugin } from 'vite';
 
 const rootDir = fileURLToPath(new URL('.', import.meta.url));
+const assetCacheVersion =
+  process.env.VITE_ASSET_CACHE_VERSION || process.env.GITHUB_SHA || `local-${Date.now().toString(36)}`;
 
 function copyTitanAssets(): Plugin {
   return {
@@ -22,6 +24,9 @@ function copyTitanAssets(): Plugin {
 
 export default defineConfig({
   base: './',
+  define: {
+    __ASSET_CACHE_VERSION__: JSON.stringify(assetCacheVersion),
+  },
   plugins: [copyTitanAssets()],
   build: {
     rollupOptions: {

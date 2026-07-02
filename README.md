@@ -29,7 +29,7 @@ En dev, ouvrir l'URL affichée par Vite. Le jeu principal est sur `index.html` e
 
 ## Déploiement
 
-Le workflow OVH installe les dépendances avec `npm ci`, lance `npm run build`, puis publie uniquement `dist/`. Vite utilise des chemins relatifs (`base: './'`) pour que le bundle fonctionne aussi quand le jeu est servi depuis un sous-dossier comme `/titan-rocket-run/`.
+Le workflow OVH installe les dépendances avec `npm ci`, lance `npm run build`, puis publie uniquement `dist/`. Vite utilise des chemins relatifs (`base: './'`) pour que le bundle fonctionne aussi quand le jeu est servi depuis un sous-dossier comme `/titan-rocket-run/`. Les assets copiés sans hash (`assets/titan_manifest.json` et PNG) reçoivent un `?v=` explicite via `src/game/cacheBust.ts`, basé sur `GITHUB_SHA` en CI ou `VITE_ASSET_CACHE_VERSION` si défini.
 
 ## Gameplay
 
